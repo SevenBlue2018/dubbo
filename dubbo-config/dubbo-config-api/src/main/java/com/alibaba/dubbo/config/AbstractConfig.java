@@ -88,7 +88,7 @@ public abstract class AbstractConfig implements Serializable {
         }
         return value;
     }
-
+    //  配置覆盖逻辑
     protected static void appendProperties(AbstractConfig config) {
         if (config == null) {
             return;

@@ -20,7 +20,7 @@ import java.net.InetSocketAddress;
 
 /**
  * TimeoutException. (API, Prototype, ThreadSafe)
- *
+ * 实现 RemotingException 类，超时异常
  * @export
  * @see com.alibaba.dubbo.remoting.exchange.ResponseFuture#get()
  * @see com.alibaba.dubbo.remoting.exchange.ResponseFuture#get(int)

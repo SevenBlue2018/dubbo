@@ -37,6 +37,10 @@ import java.io.OutputStream;
 import java.lang.reflect.Type;
 import java.util.Map;
 
+/**
+ * 实现 Codec 和 Decodeable 接口，继承 RpcResult 类，可解码的 RpcResult 实现类。
+ * 当服务提供者者，返回服务消费者调用结果，前者编码的 RpcResult 对象，后者解码成 DecodeableRpcResult 对象。
+ */
 public class DecodeableRpcResult extends RpcResult implements Codec, Decodeable {
 
     private static final Logger log = LoggerFactory.getLogger(DecodeableRpcResult.class);
@@ -46,11 +50,17 @@ public class DecodeableRpcResult extends RpcResult implements Codec, Decodeable 
     private byte serializationType;
 
     private InputStream inputStream;
-
+    /**
+     * 响应
+     */
     private Response response;
-
+    /**
+     * Invocation 对象
+     */
     private Invocation invocation;
-
+    /**
+     * 是否已经解码完成
+     */
     private volatile boolean hasDecoded;
 
     public DecodeableRpcResult(Channel channel, Response response, InputStream is, Invocation invocation, byte id) {
@@ -73,34 +83,34 @@ public class DecodeableRpcResult extends RpcResult implements Codec, Decodeable 
     public Object decode(Channel channel, InputStream input) throws IOException {
         ObjectInput in = CodecSupport.getSerialization(channel.getUrl(), serializationType)
                 .deserialize(channel.getUrl(), input);
-        
-        byte flag = in.readByte();
+        // 读取标记位
+        byte flag = in.readByte(); // 读取响应标记
         switch (flag) {
-            case DubboCodec.RESPONSE_NULL_VALUE:
+            case DubboCodec.RESPONSE_NULL_VALUE: // 无返回值
                 break;
-            case DubboCodec.RESPONSE_VALUE:
+            case DubboCodec.RESPONSE_VALUE: // 有返回值
                 try {
-                    Type[] returnType = RpcUtils.getReturnTypes(invocation);
-                    setValue(returnType == null || returnType.length == 0 ? in.readObject() :
+                    Type[] returnType = RpcUtils.getReturnTypes(invocation); // 读取方法调用返回值的类型
+                    setValue(returnType == null || returnType.length == 0 ? in.readObject() :  // 读取响应结果
                             (returnType.length == 1 ? in.readObject((Class<?>) returnType[0])
-                                    : in.readObject((Class<?>) returnType[0], returnType[1])));
+                                    : in.readObject((Class<?>) returnType[0], returnType[1]))); // 如果返回值包含泛型，则调用反序列化解析接口
                 } catch (ClassNotFoundException e) {
                     throw new IOException(StringUtils.toString("Read response data failed.", e));
                 }
                 break;
-            case DubboCodec.RESPONSE_WITH_EXCEPTION:
+            case DubboCodec.RESPONSE_WITH_EXCEPTION: // 异常
                 try {
-                    Object obj = in.readObject();
+                    Object obj = in.readObject();  // 读取响应结果
                     if (obj instanceof Throwable == false)
                         throw new IOException("Response data error, expect Throwable, but get " + obj);
-                    setException((Throwable) obj);
+                    setException((Throwable) obj); // 保存读取的返回值异常结果
                 } catch (ClassNotFoundException e) {
                     throw new IOException(StringUtils.toString("Read response data failed.", e));
                 }
                 break;
             case DubboCodec.RESPONSE_NULL_VALUE_WITH_ATTACHMENTS:
                 try {
-                    setAttachments((Map<String, String>) in.readObject(Map.class));
+                    setAttachments((Map<String, String>) in.readObject(Map.class)); // 读取返回值为null，并且存在隐式参数
                 } catch (ClassNotFoundException e) {
                     throw new IOException(StringUtils.toString("Read response data failed.", e));
                 }
@@ -127,7 +137,7 @@ public class DecodeableRpcResult extends RpcResult implements Codec, Decodeable 
                     throw new IOException(StringUtils.toString("Read response data failed.", e));
                 }
                 break;
-            default:
+            default: // 其他类似隐式参数的读取
                 throw new IOException("Unknown result flag, expect '0' '1' '2', get " + flag);
         }
         if (in instanceof Cleanable) {

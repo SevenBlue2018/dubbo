@@ -20,6 +20,7 @@ import com.alibaba.dubbo.common.extension.SPI;
 
 /**
  * Container. (SPI, Singleton, ThreadSafe)
+ * 服务容器接口
  */
 @SPI("spring")
 public interface Container {

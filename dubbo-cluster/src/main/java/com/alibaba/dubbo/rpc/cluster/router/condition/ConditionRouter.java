@@ -57,12 +57,12 @@ public class ConditionRouter implements Router, Comparable<Router> {
         this.priority = url.getParameter(Constants.PRIORITY_KEY, 0);
         this.force = url.getParameter(Constants.FORCE_KEY, false);
         try {
-            String rule = url.getParameterAndDecoded(Constants.RULE_KEY);
+            String rule = url.getParameterAndDecoded(Constants.RULE_KEY); // 从URL里查找rule对应的规则字符串
             if (rule == null || rule.trim().length() == 0) {
                 throw new IllegalArgumentException("Illegal route rule!");
             }
             rule = rule.replace("consumer.", "").replace("provider.", "");
-            int i = rule.indexOf("=>");
+            int i = rule.indexOf("=>"); // 通过=>将其一分为二，一个是whenRule，一个是thenRule，利用parseRule进行解析
             String whenRule = i < 0 ? null : rule.substring(0, i).trim();
             String thenRule = i < 0 ? rule.trim() : rule.substring(i + 2).trim();
             Map<String, MatchPair> when = StringUtils.isBlank(whenRule) || "true".equals(whenRule) ? new HashMap<String, MatchPair>() : parseRule(whenRule);
@@ -145,33 +145,33 @@ public class ConditionRouter implements Router, Comparable<Router> {
     @Override
     public <T> List<Invoker<T>> route(List<Invoker<T>> invokers, URL url, Invocation invocation)
             throws RpcException {
-        if (invokers == null || invokers.isEmpty()) {
+        if (invokers == null || invokers.isEmpty()) { // 如果传入的invokers为空直接返回
             return invokers;
         }
         try {
-            if (!matchWhen(url, invocation)) {
+            if (!matchWhen(url, invocation)) { // 如果没有配置路由规则或者whenRule没有匹配上
                 return invokers;
             }
             List<Invoker<T>> result = new ArrayList<Invoker<T>>();
-            if (thenCondition == null) {
+            if (thenCondition == null) { // 如果whenRule匹配上，但是thenRule为空，则表明禁止访问，返回空结果
                 logger.warn("The current consumer in the service blacklist. consumer: " + NetUtils.getLocalHost() + ", service: " + url.getServiceKey());
                 return result;
             }
-            for (Invoker<T> invoker : invokers) {
+            for (Invoker<T> invoker : invokers) { // 遍历invokers找出符合thenRule的invoker
                 if (matchThen(invoker.getUrl(), url)) {
                     result.add(invoker);
                 }
             }
-            if (!result.isEmpty()) {
+            if (!result.isEmpty()) { // 过滤结果不为空则直接返回
                 return result;
-            } else if (force) {
+            } else if (force) { // 过滤结果为空，且force=true，则表示强制过滤，还是返回result这个结果
                 logger.warn("The route result is empty and force execute. consumer: " + NetUtils.getLocalHost() + ", service: " + url.getServiceKey() + ", router: " + url.getParameterAndDecoded(Constants.RULE_KEY));
                 return result;
             }
         } catch (Throwable t) {
             logger.error("Failed to execute condition router rule: " + getUrl() + ", invokers: " + invokers + ", cause: " + t.getMessage(), t);
         }
-        return invokers;
+        return invokers; // 过滤结果为空，但是force不为true，则返回原invokers，即不进行过滤
     }
 
     @Override

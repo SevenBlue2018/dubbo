@@ -41,15 +41,27 @@ import java.util.concurrent.locks.ReentrantLock;
  * DubboInvoker
  */
 public class DubboInvoker<T> extends AbstractInvoker<T> {
-
+    /**
+     * 远程通信客户端数组
+     */
     private final ExchangeClient[] clients;
-
+    /**
+     * 远程通信客户端数组
+     */
     private final AtomicPositiveInteger index = new AtomicPositiveInteger();
-
+    /**
+     * 版本
+     */
     private final String version;
-
+    /**
+     * 销毁锁
+     *
+     * 在 {@link #destroy()} 中使用
+     */
     private final ReentrantLock destroyLock = new ReentrantLock();
-
+    /**
+     * Invoker 集合，从 {@link DubboProtocol#invokers} 获取
+     */
     private final Set<Invoker<?>> invokers;
 
     public DubboInvoker(Class<T> serviceType, URL url, ExchangeClient[] clients) {
@@ -67,32 +79,38 @@ public class DubboInvoker<T> extends AbstractInvoker<T> {
     @Override
     protected Result doInvoke(final Invocation invocation) throws Throwable {
         RpcInvocation inv = (RpcInvocation) invocation;
+        // 获得方法名
         final String methodName = RpcUtils.getMethodName(invocation);
+        // 获得 `path`( 服务名 )，`version`
         inv.setAttachment(Constants.PATH_KEY, getUrl().getPath());
         inv.setAttachment(Constants.VERSION_KEY, version);
-
+        // 获得 ExchangeClient 对象
         ExchangeClient currentClient;
         if (clients.length == 1) {
             currentClient = clients[0];
         } else {
             currentClient = clients[index.getAndIncrement() % clients.length];
         }
+        // 远程调用
         try {
+            // 获得是否异步调用
             boolean isAsync = RpcUtils.isAsync(getUrl(), invocation);
+            // 获得是否单向调用
             boolean isOneway = RpcUtils.isOneway(getUrl(), invocation);
+            // 获得超时时间
             int timeout = getUrl().getMethodParameter(methodName, Constants.TIMEOUT_KEY, Constants.DEFAULT_TIMEOUT);
-            if (isOneway) {
+            if (isOneway) { // 单向调用
                 boolean isSent = getUrl().getMethodParameter(methodName, Constants.SENT_KEY, false);
-                currentClient.send(inv, isSent);
-                RpcContext.getContext().setFuture(null);
+                currentClient.send(inv, isSent); // 不进行等待
+                RpcContext.getContext().setFuture(null); // 不关心结果
                 return new RpcResult();
-            } else if (isAsync) {
-                ResponseFuture future = currentClient.request(inv, timeout);
-                RpcContext.getContext().setFuture(new FutureAdapter<Object>(future));
+            } else if (isAsync) { // 异步调用
+                ResponseFuture future = currentClient.request(inv, timeout); // 不进行等待（其实是Defuture的实例对象）
+                RpcContext.getContext().setFuture(new FutureAdapter<Object>(future)); // 响应Future回调结果
                 return new RpcResult();
-            } else {
+            } else { // 同步调用
                 RpcContext.getContext().setFuture(null);
-                return (Result) currentClient.request(inv, timeout).get();
+                return (Result) currentClient.request(inv, timeout).get(); // 等待结果
             }
         } catch (TimeoutException e) {
             throw new RpcException(RpcException.TIMEOUT_EXCEPTION, "Invoke remote method timeout. method: " + invocation.getMethodName() + ", provider: " + getUrl() + ", cause: " + e.getMessage(), e);
@@ -106,6 +124,7 @@ public class DubboInvoker<T> extends AbstractInvoker<T> {
         if (!super.isAvailable())
             return false;
         for (ExchangeClient client : clients) {
+            // 判断与服务端连接是否建立并且服务端是否只读(只读表示服务端不可用，处于正在关闭的状态)
             if (client.isConnected() && !client.hasAttribute(Constants.CHANNEL_ATTRIBUTE_READONLY_KEY)) {
                 //cannot write == not Available ?
                 return true;

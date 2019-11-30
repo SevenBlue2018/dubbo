@@ -89,6 +89,11 @@ class ChannelWrappedInvoker<T> extends AbstractInvoker<T> {
 //        }
     }
 
+    /**
+     * 目前 dubbo-rpc-default 模块中，ChannelWrapper 继承了 ClientDelegate 类。
+     * 但实际上，ChannelWrapper 重新实现了所有的方法，并且，并未复用任何方法。
+     * 所以，ClientDelegate 目前用途不大
+     */
     public static class ChannelWrapper extends ClientDelegate {
 
         private final Channel channel;

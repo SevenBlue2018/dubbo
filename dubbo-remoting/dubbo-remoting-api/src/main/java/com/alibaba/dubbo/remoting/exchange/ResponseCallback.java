@@ -18,6 +18,7 @@ package com.alibaba.dubbo.remoting.exchange;
 
 /**
  * Callback
+ * 响应回调接口
  */
 public interface ResponseCallback {
 

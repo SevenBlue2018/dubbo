@@ -32,15 +32,18 @@ import java.util.Map;
 
 /**
  * ContextInvokerFilter
+ * 实现 Filter 接口，服务提供者的 ContextFilter 实现类
  */
 @Activate(group = Constants.PROVIDER, order = -10000)
 public class ContextFilter implements Filter {
 
     @Override
     public Result invoke(Invoker<?> invoker, Invocation invocation) throws RpcException {
+        // 创建新的 `attachments` 集合，清理公用的隐式参数(来源是AbstractInvoker#invoke方法里从RpcContext里获取的)
         Map<String, String> attachments = invocation.getAttachments();
         if (attachments != null) {
             attachments = new HashMap<String, String>(attachments);
+            // 公用的隐式参数是在消费端RpcInvocation构造函数里指定的
             attachments.remove(Constants.PATH_KEY);
             attachments.remove(Constants.GROUP_KEY);
             attachments.remove(Constants.VERSION_KEY);
@@ -49,6 +52,7 @@ public class ContextFilter implements Filter {
             attachments.remove(Constants.TIMEOUT_KEY);
             attachments.remove(Constants.ASYNC_KEY);// Remove async property to avoid being passed to the following invoke chain.
         }
+        // 设置 RpcContext 对象
         RpcContext.getContext()
                 .setInvoker(invoker)
                 .setInvocation(invocation)
@@ -58,6 +62,7 @@ public class ContextFilter implements Filter {
 
         // mreged from dubbox
         // we may already added some attachments into RpcContext before this filter (e.g. in rest protocol)
+        // 在此过滤器(例如rest协议)之前，我们可能已经在RpcContext中添加了一些附件。
         if (attachments != null) {
             if (RpcContext.getContext().getAttachments() != null) {
                 RpcContext.getContext().getAttachments().putAll(attachments);
@@ -65,11 +70,12 @@ public class ContextFilter implements Filter {
                 RpcContext.getContext().setAttachments(attachments);
             }
         }
-
+        // 设置 RpcInvocation 对象的 `invoker` 属性
         if (invocation instanceof RpcInvocation) {
             ((RpcInvocation) invocation).setInvoker(invoker);
         }
         try {
+            // 服务调用
             RpcResult result = (RpcResult) invoker.invoke(invocation);
             // pass attachments to result
             result.addAttachments(RpcContext.getServerContext().getAttachments());

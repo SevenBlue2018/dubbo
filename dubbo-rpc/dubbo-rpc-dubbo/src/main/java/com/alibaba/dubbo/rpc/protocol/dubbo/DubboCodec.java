@@ -43,6 +43,7 @@ import static com.alibaba.dubbo.rpc.protocol.dubbo.CallbackServiceCodec.encodeIn
 
 /**
  * Dubbo codec.
+ * 实现 Codec2 接口，继承 ExchangeCodec 类，Dubbo 编解码器实现类。
  */
 public class DubboCodec extends ExchangeCodec implements Codec2 {
 
@@ -58,45 +59,59 @@ public class DubboCodec extends ExchangeCodec implements Codec2 {
     public static final Class<?>[] EMPTY_CLASS_ARRAY = new Class<?>[0];
     private static final Logger log = LoggerFactory.getLogger(DubboCodec.class);
 
+    /**
+     * 解码消息体
+     * @param channel
+     * @param is
+     * @param header
+     * @return
+     * @throws IOException
+     */
     @Override
-    protected Object decodeBody(Channel channel, InputStream is, byte[] header) throws IOException {
+    protected Object  decodeBody(Channel channel, InputStream is, byte[] header) throws IOException {
         byte flag = header[2], proto = (byte) (flag & SERIALIZATION_MASK);
         // get request id.
         long id = Bytes.bytes2long(header, 4);
-        if ((flag & FLAG_REQUEST) == 0) {
+        if ((flag & FLAG_REQUEST) == 0) { // flag为第3字节(第16位到第23位)，& 0x80 表示请求响应的标记，结果是0则表示是响应数据
             // decode response.
             Response res = new Response(id);
+            // 若是心跳事件，进行设置
             if ((flag & FLAG_EVENT) != 0) {
                 res.setEvent(Response.HEARTBEAT_EVENT);
             }
             // get status.
+            // 设置状态
             byte status = header[3];
             res.setStatus(status);
             try {
                 ObjectInput in = CodecSupport.deserialize(channel.getUrl(), is, proto);
+                // 正常响应状态
                 if (status == Response.OK) {
                     Object data;
+                    // 解码心跳事件
                     if (res.isHeartbeat()) {
                         data = decodeHeartbeatData(channel, in);
-                    } else if (res.isEvent()) {
+                    } else if (res.isEvent()) { // 解码其它事件
                         data = decodeEventData(channel, in);
-                    } else {
+                    } else { // 解码普通响应
                         DecodeableRpcResult result;
+                        // 在通信框架（例如，Netty）的 IO 线程，解码
                         if (channel.getUrl().getParameter(
                                 Constants.DECODE_IN_IO_THREAD_KEY,
                                 Constants.DEFAULT_DECODE_IN_IO_THREAD)) {
                             result = new DecodeableRpcResult(channel, res, is,
                                     (Invocation) getRequestData(id), proto);
                             result.decode();
-                        } else {
+                        } else { // 在 Dubbo ThreadPool 线程，解码，使用 DecodeHandler
                             result = new DecodeableRpcResult(channel, res,
                                     new UnsafeByteArrayInputStream(readMessageData(is)),
                                     (Invocation) getRequestData(id), proto);
                         }
                         data = result;
                     }
+                    // 设置结果
                     res.setResult(data);
-                } else {
+                } else { // 异常响应状态
                     res.setErrorMessage(in.readUTF());
                 }
             } catch (Throwable t) {
@@ -107,41 +122,44 @@ public class DubboCodec extends ExchangeCodec implements Codec2 {
                 res.setErrorMessage(StringUtils.toString(t));
             }
             return res;
-        } else {
+        } else { // flag为第3字节(第16位到第23位)，& 0x80 表示请求响应的标记，结果是1则表示是请求数据
             // decode request.
             Request req = new Request(id);
             req.setVersion(Version.getProtocolVersion());
-            req.setTwoWay((flag & FLAG_TWOWAY) != 0);
-            if ((flag & FLAG_EVENT) != 0) {
+            // 是否需要响应
+            req.setTwoWay((flag & FLAG_TWOWAY) != 0); // flag为第3字节(第16位到第23位)，& 0x40 表示需要往返标记
+            // 若是心跳事件，进行设置
+            if ((flag & FLAG_EVENT) != 0) { // flag为第3字节(第16位到第23位)，& 0x20 表示事件标记
                 req.setEvent(Request.HEARTBEAT_EVENT);
             }
             try {
                 Object data;
                 ObjectInput in = CodecSupport.deserialize(channel.getUrl(), is, proto);
-                if (req.isHeartbeat()) {
+                if (req.isHeartbeat()) { // 解码心跳事件
                     data = decodeHeartbeatData(channel, in);
-                } else if (req.isEvent()) {
+                } else if (req.isEvent()) { // 解码其它事件
                     data = decodeEventData(channel, in);
-                } else {
+                } else { // 解码普通请求
+                    // 在通信框架（例如，Netty）的 IO 线程，解码
                     DecodeableRpcInvocation inv;
                     if (channel.getUrl().getParameter(
                             Constants.DECODE_IN_IO_THREAD_KEY,
                             Constants.DEFAULT_DECODE_IN_IO_THREAD)) {
-                        inv = new DecodeableRpcInvocation(channel, req, is, proto);
+                        inv = new DecodeableRpcInvocation(channel, req, is, proto); // 在I/O线程中直接解码
                         inv.decode();
-                    } else {
+                    } else { // 在 Dubbo ThreadPool 线程，解码，使用 DecodeHandler
                         inv = new DecodeableRpcInvocation(channel, req,
-                                new UnsafeByteArrayInputStream(readMessageData(is)), proto);
+                                new UnsafeByteArrayInputStream(readMessageData(is)), proto); // 交给dubbo业务线程池解码
                     }
                     data = inv;
                 }
-                req.setData(data);
+                req.setData(data); // 将RpcInvocation作为Request的数据域
             } catch (Throwable t) {
                 if (log.isWarnEnabled()) {
                     log.warn("Decode request failed: " + t.getMessage(), t);
                 }
                 // bad request
-                req.setBroken(true);
+                req.setBroken(true); // 编码失败，先做标记并存储异常·
                 req.setData(t);
             }
             return req;
@@ -167,47 +185,63 @@ public class DubboCodec extends ExchangeCodec implements Codec2 {
         encodeResponseData(channel, out, data, DUBBO_VERSION);
     }
 
+    /**
+     * 编码请求数据
+     * @param channel
+     * @param out
+     * @param data
+     * @param version
+     * @throws IOException
+     */
     @Override
     protected void encodeRequestData(Channel channel, ObjectOutput out, Object data, String version) throws IOException {
         RpcInvocation inv = (RpcInvocation) data;
 
-        out.writeUTF(version);
-        out.writeUTF(inv.getAttachment(Constants.PATH_KEY));
-        out.writeUTF(inv.getAttachment(Constants.VERSION_KEY));
+        out.writeUTF(version); // 写入框架版本号
+        out.writeUTF(inv.getAttachment(Constants.PATH_KEY)); // 写入调用接口
+        out.writeUTF(inv.getAttachment(Constants.VERSION_KEY)); // 写入接口指定的版本，默认为0.0.0.0
 
-        out.writeUTF(inv.getMethodName());
-        out.writeUTF(ReflectUtils.getDesc(inv.getParameterTypes()));
+        out.writeUTF(inv.getMethodName()); // 写入方法名称
+        out.writeUTF(ReflectUtils.getDesc(inv.getParameterTypes())); // 写入方法参数类型
         Object[] args = inv.getArguments();
         if (args != null)
             for (int i = 0; i < args.length; i++) {
-                out.writeObject(encodeInvocationArgument(channel, inv, i));
+                out.writeObject(encodeInvocationArgument(channel, inv, i)); // 写入方法参数值
             }
-        out.writeObject(inv.getAttachments());
+        out.writeObject(inv.getAttachments()); // 写入隐式参数
     }
 
+    /**
+     * 编码响应数据
+     * @param channel
+     * @param out
+     * @param data
+     * @param version
+     * @throws IOException
+     */
     @Override
     protected void encodeResponseData(Channel channel, ObjectOutput out, Object data, String version) throws IOException {
         Result result = (Result) data;
         // currently, the version value in Response records the version of Request
-        boolean attach = Version.isSupportResponseAttatchment(version);
+        boolean attach = Version.isSupportResponseAttatchment(version); // 判断客户端请求的版本是否支持服务端参数返回
         Throwable th = result.getException();
         if (th == null) {
-            Object ret = result.getValue();
+            Object ret = result.getValue(); // 提取正常返回结果
             if (ret == null) {
-                out.writeByte(attach ? RESPONSE_NULL_VALUE_WITH_ATTACHMENTS : RESPONSE_NULL_VALUE);
+                out.writeByte(attach ? RESPONSE_NULL_VALUE_WITH_ATTACHMENTS : RESPONSE_NULL_VALUE); // 在编码前，先写一个字节标记
             } else {
-                out.writeByte(attach ? RESPONSE_VALUE_WITH_ATTACHMENTS : RESPONSE_VALUE);
-                out.writeObject(ret);
+                out.writeByte(attach ? RESPONSE_VALUE_WITH_ATTACHMENTS : RESPONSE_VALUE); // 在编码前，先写一个字节标记
+                out.writeObject(ret); // 写入调用结果
             }
         } else {
-            out.writeByte(attach ? RESPONSE_WITH_EXCEPTION_WITH_ATTACHMENTS : RESPONSE_WITH_EXCEPTION);
-            out.writeObject(th);
+            out.writeByte(attach ? RESPONSE_WITH_EXCEPTION_WITH_ATTACHMENTS : RESPONSE_WITH_EXCEPTION); // 在编码前，先写一个字节标记
+            out.writeObject(th); // 写入异常
         }
 
         if (attach) {
             // returns current version of Response to consumer side.
-            result.getAttachments().put(Constants.DUBBO_VERSION_KEY, Version.getProtocolVersion());
-            out.writeObject(result.getAttachments());
+            result.getAttachments().put(Constants.DUBBO_VERSION_KEY, Version.getProtocolVersion()); // 记录服务端Dubbo版本
+            out.writeObject(result.getAttachments()); // 写入服务端隐式参数
         }
     }
 }

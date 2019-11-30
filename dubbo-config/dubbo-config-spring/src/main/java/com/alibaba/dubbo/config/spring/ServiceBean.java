@@ -85,7 +85,7 @@ public class ServiceBean<T> extends ServiceConfig<T> implements InitializingBean
     @Override
     public void setApplicationContext(ApplicationContext applicationContext) {
         this.applicationContext = applicationContext;
-        SpringExtensionFactory.addApplicationContext(applicationContext);
+        SpringExtensionFactory.addApplicationContext(applicationContext);  // 服务被发布时就会保存Spring的上下文
         if (applicationContext != null) {
             SPRING_CONTEXT = applicationContext;
             try {
@@ -121,7 +121,7 @@ public class ServiceBean<T> extends ServiceConfig<T> implements InitializingBean
     public Service getService() {
         return service;
     }
-
+    //  Spring容器初始化完成后执行该方法
     @Override
     public void onApplicationEvent(ContextRefreshedEvent event) {
         if (isDelay() && !isExported() && !isUnexported()) {

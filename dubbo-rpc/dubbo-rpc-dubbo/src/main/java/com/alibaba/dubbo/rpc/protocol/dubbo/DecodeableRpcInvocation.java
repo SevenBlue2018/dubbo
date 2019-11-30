@@ -39,18 +39,32 @@ import java.util.Map;
 
 import static com.alibaba.dubbo.rpc.protocol.dubbo.CallbackServiceCodec.decodeInvocationArgument;
 
+/**
+ * 实现 Codec 和 Decodeable 接口，继承 RpcInvocation 类，可解码的 RpcInvocation 实现类。
+ * 当服务消费者，调用服务提供者，前者编码的 RpcInvocation 对象，后者解码成 DecodeableRpcInvocation 对象。
+ */
 public class DecodeableRpcInvocation extends RpcInvocation implements Codec, Decodeable {
 
     private static final Logger log = LoggerFactory.getLogger(DecodeableRpcInvocation.class);
-
+    /**
+     * 通道
+     */
     private Channel channel;
-
+    /**
+     * Serialization 类型编号
+     */
     private byte serializationType;
-
+    /**
+     * 输入流
+     */
     private InputStream inputStream;
-
+    /**
+     * 请求
+     */
     private Request request;
-
+    /**
+     * 是否已经解码完成
+     */
     private volatile boolean hasDecoded;
 
     public DecodeableRpcInvocation(Channel channel, Request request, InputStream is, byte id) {
@@ -90,18 +104,19 @@ public class DecodeableRpcInvocation extends RpcInvocation implements Codec, Dec
         ObjectInput in = CodecSupport.getSerialization(channel.getUrl(), serializationType)
                 .deserialize(channel.getUrl(), input);
 
-        String dubboVersion = in.readUTF();
+        String dubboVersion = in.readUTF(); // 读取框架版本
         request.setVersion(dubboVersion);
+        // 解码 `dubbo` `path` `version`
         setAttachment(Constants.DUBBO_VERSION_KEY, dubboVersion);
 
-        setAttachment(Constants.PATH_KEY, in.readUTF());
-        setAttachment(Constants.VERSION_KEY, in.readUTF());
-
-        setMethodName(in.readUTF());
+        setAttachment(Constants.PATH_KEY, in.readUTF()); // 读取调用接口
+        setAttachment(Constants.VERSION_KEY, in.readUTF()); // 读取接口指定的版本，默认为0.0.0.0
+        // 解码方法、方法签名、方法参数集合
+        setMethodName(in.readUTF()); // 读取方法名称
         try {
             Object[] args;
             Class<?>[] pts;
-            String desc = in.readUTF();
+            String desc = in.readUTF(); // 读取方法参数类型
             if (desc.length() == 0) {
                 pts = DubboCodec.EMPTY_CLASS_ARRAY;
                 args = DubboCodec.EMPTY_OBJECT_ARRAY;
@@ -110,7 +125,7 @@ public class DecodeableRpcInvocation extends RpcInvocation implements Codec, Dec
                 args = new Object[pts.length];
                 for (int i = 0; i < args.length; i++) {
                     try {
-                        args[i] = in.readObject(pts[i]);
+                        args[i] = in.readObject(pts[i]); // 依次读取方法参数值
                     } catch (Exception e) {
                         if (log.isWarnEnabled()) {
                             log.warn("Decode argument failed: " + e.getMessage(), e);
@@ -119,8 +134,8 @@ public class DecodeableRpcInvocation extends RpcInvocation implements Codec, Dec
                 }
             }
             setParameterTypes(pts);
-
-            Map<String, String> map = (Map<String, String>) in.readObject(Map.class);
+            // 解码隐式传参集合
+            Map<String, String> map = (Map<String, String>) in.readObject(Map.class); // 读取隐式参数
             if (map != null && map.size() > 0) {
                 Map<String, String> attachment = getAttachments();
                 if (attachment == null) {
@@ -129,8 +144,9 @@ public class DecodeableRpcInvocation extends RpcInvocation implements Codec, Dec
                 attachment.putAll(map);
                 setAttachments(attachment);
             }
+            // 进一步解码方法参数，主要为了参数返回
             //decode argument ,may be callback
-            for (int i = 0; i < args.length; i++) {
+            for (int i = 0; i < args.length; i++) { // 处理异步参数回调，如果有则在服务端创建Reference代理实例
                 args[i] = decodeInvocationArgument(channel, this, pts, i, args[i]);
             }
 

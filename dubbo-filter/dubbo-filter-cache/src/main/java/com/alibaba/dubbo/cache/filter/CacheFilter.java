@@ -31,10 +31,15 @@ import com.alibaba.dubbo.rpc.RpcResult;
 
 /**
  * CacheFilter
+ * 实现 Filter 接口，缓存过滤器实现类
  */
 @Activate(group = {Constants.CONSUMER, Constants.PROVIDER}, value = Constants.CACHE_KEY)
 public class CacheFilter implements Filter {
 
+    /**
+     * CacheFactory$Adaptive 对象。
+     * 通过 Dubbo SPI 机制，调用 {@link #setCacheFactory(CacheFactory)} 方法，进行注入
+     */
     private CacheFactory cacheFactory;
 
     public void setCacheFactory(CacheFactory cacheFactory) {
@@ -43,21 +48,28 @@ public class CacheFilter implements Filter {
 
     @Override
     public Result invoke(Invoker<?> invoker, Invocation invocation) throws RpcException {
+        // 方法开启 Cache 功能
         if (cacheFactory != null && ConfigUtils.isNotEmpty(invoker.getUrl().getMethodParameter(invocation.getMethodName(), Constants.CACHE_KEY))) {
-            Cache cache = cacheFactory.getCache(invoker.getUrl(), invocation);
+            // 基于 URL + Method 为维度，获得 Cache 对象。
+            Cache cache = cacheFactory.getCache(invoker.getUrl(), invocation); // 添加 `method` 属性，是因为 JCache 需要。
             if (cache != null) {
+                // 获得 Cache Key
                 String key = StringUtils.toArgumentString(invocation.getArguments());
+                // 从缓存中获得结果。若存在，创建 RpcResult 对象。
                 Object value = cache.get(key);
                 if (value != null) {
                     return new RpcResult(value);
                 }
+                // 服务调用
                 Result result = invoker.invoke(invocation);
+                // 若非异常结果，缓存结果
                 if (!result.hasException() && result.getValue() != null) {
                     cache.put(key, result.getValue());
                 }
                 return result;
             }
         }
+        // 服务调用
         return invoker.invoke(invocation);
     }
 

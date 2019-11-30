@@ -39,7 +39,7 @@ public class CallbackServiceImpl implements CallbackService {
                     try {
                         for (Map.Entry<String, CallbackListener> entry : listeners.entrySet()) {
                             try {
-                                entry.getValue().changed(getChanged(entry.getKey()));
+                                entry.getValue().changed(getChanged(entry.getKey())); // 这是一个代理类，内部是调用InvokerInvocationHandler#invoke方法
                             } catch (Throwable t) {
                                 listeners.remove(entry.getKey());
                             }

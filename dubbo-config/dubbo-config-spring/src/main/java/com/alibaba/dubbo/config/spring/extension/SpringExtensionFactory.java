@@ -33,10 +33,10 @@ import java.util.Set;
 public class SpringExtensionFactory implements ExtensionFactory {
     private static final Logger logger = LoggerFactory.getLogger(SpringExtensionFactory.class);
 
-    private static final Set<ApplicationContext> contexts = new ConcurrentHashSet<ApplicationContext>();
+    private static final Set<ApplicationContext> contexts = new ConcurrentHashSet<ApplicationContext>(); // 用能自动去重的Set保存Spring上下文
 
     public static void addApplicationContext(ApplicationContext context) {
-        contexts.add(context);
+        contexts.add(context); // Spring上下文引用会在这里被保存
     }
 
     public static void removeApplicationContext(ApplicationContext context) {
@@ -51,7 +51,7 @@ public class SpringExtensionFactory implements ExtensionFactory {
     @Override
     @SuppressWarnings("unchecked")
     public <T> T getExtension(Class<T> type, String name) {
-        for (ApplicationContext context : contexts) {
+        for (ApplicationContext context : contexts) { // 遍历所有Spring上下文，先根据名称从Spring容器中查找
             if (context.containsBean(name)) {
                 Object bean = context.getBean(name);
                 if (type.isInstance(bean)) {
@@ -66,7 +66,7 @@ public class SpringExtensionFactory implements ExtensionFactory {
             return null;
         }
 
-        for (ApplicationContext context : contexts) {
+        for (ApplicationContext context : contexts) { // 再根据类型从Spring容器中查找
             try {
                 return context.getBean(type);
             } catch (NoUniqueBeanDefinitionException multiBeanExe) {
@@ -80,7 +80,7 @@ public class SpringExtensionFactory implements ExtensionFactory {
 
         logger.warn("No spring extension (bean) named:" + name + ", type:" + type.getName() + " found, stop get bean.");
 
-        return null;
+        return null; // 根据类型也找不到，则返回null
     }
 
 }

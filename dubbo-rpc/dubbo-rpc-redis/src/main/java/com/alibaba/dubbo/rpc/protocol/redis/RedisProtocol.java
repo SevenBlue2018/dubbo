@@ -48,6 +48,7 @@ import java.util.concurrent.TimeoutException;
 
 /**
  * RedisProtocol
+ * 实现 AbstractProtocol 抽象类，redis:// 协议实现类
  */
 public class RedisProtocol extends AbstractProtocol {
 
@@ -60,6 +61,7 @@ public class RedisProtocol extends AbstractProtocol {
 
     @Override
     public <T> Exporter<T> export(final Invoker<T> invoker) throws RpcException {
+        // 实际访问的就是 Redis Server 实例，因此无需进行 Dubbo 服务暴露
         throw new UnsupportedOperationException("Unsupported export redis service. url: " + invoker.getUrl());
     }
 
@@ -70,6 +72,7 @@ public class RedisProtocol extends AbstractProtocol {
     @Override
     public <T> Invoker<T> refer(final Class<T> type, final URL url) throws RpcException {
         try {
+            // 创建 GenericObjectPoolConfig 对象，设置配置
             GenericObjectPoolConfig config = new GenericObjectPoolConfig();
             config.setTestOnBorrow(url.getParameter("test.on.borrow", true));
             config.setTestOnReturn(url.getParameter("test.on.return", false));
@@ -98,6 +101,7 @@ public class RedisProtocol extends AbstractProtocol {
             final String get = url.getParameter("get", "get");
             final String set = url.getParameter("set", Map.class.equals(type) ? "put" : "set");
             final String delete = url.getParameter("delete", Map.class.equals(type) ? "remove" : "delete");
+            // 创建 Invoker 对象
             return new AbstractInvoker<T>(type, url) {
                 @Override
                 protected Result doInvoke(Invocation invocation) throws Throwable {

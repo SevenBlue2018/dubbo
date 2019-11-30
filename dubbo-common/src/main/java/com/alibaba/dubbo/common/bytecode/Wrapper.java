@@ -34,8 +34,14 @@ import java.util.regex.Matcher;
 
 /**
  * Wrapper.
+ * Wrapper 抽象类，用于创建某个对象的方法调用的包装器，以避免反射调用，提高性能
  */
 public abstract class Wrapper {
+    /**
+     * Wrapper 对象缓存
+     * key ：Wrapper 类。
+     * value ：Proxy 对象
+     */
     private static final Map<Class<?>, Wrapper> WRAPPER_MAP = new ConcurrentHashMap<Class<?>, Wrapper>(); //class wrapper map
     private static final String[] EMPTY_STRING_ARRAY = new String[0];
     private static final String[] OBJECT_METHODS = new String[]{"getClass", "hashCode", "toString", "equals"};
@@ -96,20 +102,28 @@ public abstract class Wrapper {
      * @return Wrapper instance(not null).
      */
     public static Wrapper getWrapper(Class<?> c) {
+        // 判断是否继承 ClassGenerator.DC.class ，如果是，拿到父类，避免重复包装
         while (ClassGenerator.isDynamicClass(c)) // can not wrapper on dynamic class.
             c = c.getSuperclass();
-
+        // 指定类为 Object.class
         if (c == Object.class)
             return OBJECT_WRAPPER;
-
+        // 从缓存中获得 Wrapper 对象
         Wrapper ret = WRAPPER_MAP.get(c);
         if (ret == null) {
+            // 创建 Wrapper 对象，并添加到缓存
             ret = makeWrapper(c);
             WRAPPER_MAP.put(c, ret);
         }
         return ret;
     }
 
+    /**
+     * 创建 Wrapper 对象
+     * 实现上，和 Proxy 差不过的，只生成一个 Wrapper 类
+     * @param c
+     * @return
+     */
     private static Wrapper makeWrapper(Class<?> c) {
         if (c.isPrimitive())
             throw new IllegalArgumentException("Can not create wrapper for primitive type: " + c);

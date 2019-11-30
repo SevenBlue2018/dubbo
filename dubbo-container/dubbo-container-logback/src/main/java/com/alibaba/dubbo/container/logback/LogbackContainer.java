@@ -31,6 +31,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  * LogbackContainer. (SPI, Singleton, ThreadSafe)
+ * 实现 Container 接口，Logback 容器实现类，自动配置 logback 的配置，自动适配 logback 的配置。
  */
 public class LogbackContainer implements Container {
 

@@ -20,7 +20,7 @@ import com.alibaba.dubbo.remoting.RemotingException;
 
 /**
  * Future. (API/SPI, Prototype, ThreadSafe)
- *
+ * 响应 Future 接口
  * @see com.alibaba.dubbo.remoting.exchange.ExchangeChannel#request(Object)
  * @see com.alibaba.dubbo.remoting.exchange.ExchangeChannel#request(Object, int)
  */

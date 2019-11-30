@@ -55,7 +55,7 @@ public class MockInvokersSelector implements Router {
         }
         List<Invoker<T>> sInvokers = new ArrayList<Invoker<T>>(1);
         for (Invoker<T> invoker : invokers) {
-            if (invoker.getUrl().getProtocol().equals(Constants.MOCK_PROTOCOL)) {
+            if (invoker.getUrl().getProtocol().equals(Constants.MOCK_PROTOCOL)) { // 从invokers里把protocol包含mock标识的取出来
                 sInvokers.add(invoker);
             }
         }
@@ -68,7 +68,7 @@ public class MockInvokersSelector implements Router {
         } else {
             List<Invoker<T>> sInvokers = new ArrayList<Invoker<T>>(invokers.size());
             for (Invoker<T> invoker : invokers) {
-                if (!invoker.getUrl().getProtocol().equals(Constants.MOCK_PROTOCOL)) {
+                if (!invoker.getUrl().getProtocol().equals(Constants.MOCK_PROTOCOL)) { // 从invokers里把protocol不包含mock标识的取出来
                     sInvokers.add(invoker);
                 }
             }

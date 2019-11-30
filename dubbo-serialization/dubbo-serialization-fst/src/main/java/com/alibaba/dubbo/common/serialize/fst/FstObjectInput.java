@@ -24,7 +24,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Type;
 
-
+/**
+ * 实现 ObjectInput 接口，FST 对象输入实现类
+ */
 public class FstObjectInput implements ObjectInput {
 
     private FSTObjectInput input;

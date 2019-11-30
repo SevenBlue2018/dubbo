@@ -35,6 +35,8 @@ import java.net.InetSocketAddress;
 
 /**
  * ExchangeReceiver
+ * 实现 ExchangeChannel 接口，基于消息头部( Header )的信息交换通道实现类。
+ * 是传入 channel 属性的装饰器，每个实现的方法，都会调用 channel。
  */
 final class HeaderExchangeChannel implements ExchangeChannel {
 
@@ -106,11 +108,12 @@ final class HeaderExchangeChannel implements ExchangeChannel {
         if (closed) {
             throw new RemotingException(this.getLocalAddress(), null, "Failed to send request " + request + ", cause: The channel " + this + " is closed!");
         }
-        // create request.
+        // create request. 创建请求
         Request req = new Request();
         req.setVersion(Version.getProtocolVersion());
-        req.setTwoWay(true);
+        req.setTwoWay(true); // 需要响应
         req.setData(request);
+        // 创建 DefaultFuture 对象
         DefaultFuture future = new DefaultFuture(channel, req, timeout);
         try {
             channel.send(req);
@@ -118,6 +121,7 @@ final class HeaderExchangeChannel implements ExchangeChannel {
             future.cancel();
             throw e;
         }
+        // 返回 DefaultFuture 对象
         return future;
     }
 

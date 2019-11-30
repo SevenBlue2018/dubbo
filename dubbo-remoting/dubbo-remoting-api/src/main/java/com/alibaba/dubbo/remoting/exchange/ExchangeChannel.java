@@ -21,6 +21,7 @@ import com.alibaba.dubbo.remoting.RemotingException;
 
 /**
  * ExchangeChannel. (API/SPI, Prototype, ThreadSafe)
+ * 继承 Channel 接口，信息交换通道接口
  */
 public interface ExchangeChannel extends Channel {
 

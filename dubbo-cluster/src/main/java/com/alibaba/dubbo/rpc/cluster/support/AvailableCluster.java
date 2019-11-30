@@ -41,7 +41,7 @@ public class AvailableCluster implements Cluster {
             @Override
             public Result doInvoke(Invocation invocation, List<Invoker<T>> invokers, LoadBalance loadbalance) throws RpcException {
                 for (Invoker<T> invoker : invokers) {
-                    if (invoker.isAvailable()) {
+                    if (invoker.isAvailable()) { // 找到第一个可用的invoker
                         return invoker.invoke(invocation);
                     }
                 }

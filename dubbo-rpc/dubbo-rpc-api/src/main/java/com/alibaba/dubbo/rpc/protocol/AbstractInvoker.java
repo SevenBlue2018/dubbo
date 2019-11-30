@@ -43,15 +43,25 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public abstract class AbstractInvoker<T> implements Invoker<T> {
 
     protected final Logger logger = LoggerFactory.getLogger(getClass());
-
+    /**
+     * 接口类型
+     */
     private final Class<T> type;
-
+    /**
+     * 服务 URL
+     */
     private final URL url;
-
+    /**
+     * 公用的隐式传参。在 {@link #invoke(Invocation)} 方法中使用。
+     */
     private final Map<String, String> attachment;
-
+    /**
+     * 是否可用
+     */
     private volatile boolean available = true;
-
+    /**
+     * 是否销毁
+     */
     private AtomicBoolean destroyed = new AtomicBoolean(false);
 
     public AbstractInvoker(Class<T> type, URL url) {
@@ -131,10 +141,13 @@ public abstract class AbstractInvoker<T> implements Invoker<T> {
         }
 
         RpcInvocation invocation = (RpcInvocation) inv;
+        // 设置 `invoker` 属性
         invocation.setInvoker(this);
+        // 添加公用的隐式传参，例如，`path` `interface` 等等，详见 RpcInvocation 类。
         if (attachment != null && attachment.size() > 0) {
             invocation.addAttachmentsIfAbsent(attachment);
         }
+        // 添加自定义的隐士传参
         Map<String, String> contextAttachments = RpcContext.getContext().getAttachments();
         if (contextAttachments != null && contextAttachments.size() != 0) {
             /**
@@ -145,12 +158,13 @@ public abstract class AbstractInvoker<T> implements Invoker<T> {
              */
             invocation.addAttachments(contextAttachments);
         }
+        // 设置 `async=true` ，若为异步方法
         if (getUrl().getMethodParameter(invocation.getMethodName(), Constants.ASYNC_KEY, false)) {
             invocation.setAttachment(Constants.ASYNC_KEY, Boolean.TRUE.toString());
         }
         RpcUtils.attachInvocationIdIfAsync(getUrl(), invocation);
 
-
+        // 执行调用
         try {
             return doInvoke(invocation);
         } catch (InvocationTargetException e) { // biz exception

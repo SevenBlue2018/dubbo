@@ -26,10 +26,16 @@ import org.springframework.context.support.ClassPathXmlApplicationContext;
 
 /**
  * SpringContainer. (SPI, Singleton, ThreadSafe)
+ * 实现 Container 接口，Spring 容器实现类。
  */
 public class SpringContainer implements Container {
-
+    /**
+     * Spring 配置属性 KEY
+     */
     public static final String SPRING_CONFIG = "dubbo.spring.config";
+    /**
+     * 默认配置文件地址
+     */
     public static final String DEFAULT_SPRING_CONFIG = "classpath*:META-INF/spring/*.xml";
     private static final Logger logger = LoggerFactory.getLogger(SpringContainer.class);
     static ClassPathXmlApplicationContext context;

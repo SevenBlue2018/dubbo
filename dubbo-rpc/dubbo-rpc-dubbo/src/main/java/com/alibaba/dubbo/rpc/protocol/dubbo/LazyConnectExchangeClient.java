@@ -36,6 +36,7 @@ import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * dubbo protocol support class.
+ * 实现 ExchangeClient 接口，支持懒连接服务器的信息交换客户端实现类。
  */
 @SuppressWarnings("deprecation")
 final class LazyConnectExchangeClient implements ExchangeClient {
@@ -43,13 +44,31 @@ final class LazyConnectExchangeClient implements ExchangeClient {
     // when this warning rises from invocation, program probably have bug.
     static final String REQUEST_WITH_WARNING_KEY = "lazyclient_request_with_warning";
     private final static Logger logger = LoggerFactory.getLogger(LazyConnectExchangeClient.class);
+    /**
+     * 请求时，是否检查告警
+     */
     protected final boolean requestWithWarning;
     private final URL url;
+    /**
+     * 通道处理器
+     */
     private final ExchangeHandler requestHandler;
+    /**
+     * 连接锁
+     */
     private final Lock connectLock = new ReentrantLock();
+    /**
+     * lazy connect 如果没有初始化时的连接状态
+     */
     // lazy connect, initial state for connection
     private final boolean initialState;
+    /**
+     * 通信客户端
+     */
     private volatile ExchangeClient client;
+    /**
+     * 警告计数器。每超过一定次数，打印告警日志。参见 {@link #warning(Object)}
+     */
     private AtomicLong warningcount = new AtomicLong(0);
 
     public LazyConnectExchangeClient(URL url, ExchangeHandler requestHandler) {
@@ -71,6 +90,7 @@ final class LazyConnectExchangeClient implements ExchangeClient {
         try {
             if (client != null)
                 return;
+            // 创建 Client ，连接服务器
             this.client = Exchangers.connect(url, requestHandler);
         } finally {
             connectLock.unlock();
@@ -79,6 +99,7 @@ final class LazyConnectExchangeClient implements ExchangeClient {
 
     @Override
     public ResponseFuture request(Object request) throws RemotingException {
+        // 每次发送请求时，会调用 #warning(request) 方法，根据情况，打印告警日志
         warning(request);
         initClient();
         return client.request(request);
@@ -112,10 +133,10 @@ final class LazyConnectExchangeClient implements ExchangeClient {
      */
     private void warning(Object request) {
         if (requestWithWarning) {
-            if (warningcount.get() % 5000 == 0) {
+            if (warningcount.get() % 5000 == 0) { // 5000 次
                 logger.warn(new IllegalStateException("safe guard client , should not be called ,must have a bug."));
             }
-            warningcount.incrementAndGet();
+            warningcount.incrementAndGet(); // 增加计数
         }
     }
 
@@ -154,6 +175,12 @@ final class LazyConnectExchangeClient implements ExchangeClient {
         client.send(message);
     }
 
+    /**
+     * 基于装饰器模式，所以，每个实现方法，都是调用 client 的对应的方法
+     * @param message
+     * @param sent    already sent to socket?
+     * @throws RemotingException
+     */
     @Override
     public void send(Object message, boolean sent) throws RemotingException {
         initClient();

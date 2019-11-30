@@ -22,12 +22,13 @@ import java.util.List;
 
 /**
  * NotifyListener. (API, Prototype, ThreadSafe)
- *
+ * 通知监听器。当收到服务变更通知时触发
  * @see com.alibaba.dubbo.registry.RegistryService#subscribe(URL, NotifyListener)
  */
 public interface NotifyListener {
 
     /**
+     * 全量、分类、为空、顺序
      * Triggered when a service change notification is received.
      * <p>
      * Notify needs to support the contract: <br>

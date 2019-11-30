@@ -66,8 +66,10 @@ public class DubboShutdownHook extends Thread {
             return;
         }
         // destroy all the registries
+        // 销毁 Registry 相关
         AbstractRegistryFactory.destroyAll();
         // destroy all the protocols
+        // 销毁 Protocol 相关
         ExtensionLoader<Protocol> loader = ExtensionLoader.getExtensionLoader(Protocol.class);
         for (String protocolName : loader.getLoadedExtensions()) {
             try {

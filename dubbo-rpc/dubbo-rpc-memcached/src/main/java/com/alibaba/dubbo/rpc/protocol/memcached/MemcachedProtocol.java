@@ -40,6 +40,7 @@ import java.util.concurrent.TimeoutException;
 
 /**
  * MemcachedProtocol
+ * 实现 AbstractProtocol 抽象类，memcached:// 协议实现类。
  */
 public class MemcachedProtocol extends AbstractProtocol {
 
@@ -52,6 +53,7 @@ public class MemcachedProtocol extends AbstractProtocol {
 
     @Override
     public <T> Exporter<T> export(final Invoker<T> invoker) throws RpcException {
+        // 实际访问的就是 Memcached Server 实例，因此无需进行 Dubbo 服务暴露
         throw new UnsupportedOperationException("Unsupported export memcached service. url: " + invoker.getUrl());
     }
 

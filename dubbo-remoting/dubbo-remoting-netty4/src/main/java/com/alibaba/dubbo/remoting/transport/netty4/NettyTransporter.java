@@ -23,6 +23,9 @@ import com.alibaba.dubbo.remoting.RemotingException;
 import com.alibaba.dubbo.remoting.Server;
 import com.alibaba.dubbo.remoting.Transporter;
 
+/**
+ * 实现 Transporter 接口，基于 Netty4 的网络传输实现类
+ */
 public class NettyTransporter implements Transporter {
 
     public static final String NAME = "netty4";

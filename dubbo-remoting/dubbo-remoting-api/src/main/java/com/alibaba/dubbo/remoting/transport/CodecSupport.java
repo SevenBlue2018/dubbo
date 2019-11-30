@@ -31,10 +31,22 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
+/**
+ * 编解码工具类，提供查询 Serialization 的功能
+ */
 public class CodecSupport {
 
     private static final Logger logger = LoggerFactory.getLogger(CodecSupport.class);
+    /**
+     * 序列化对象集合
+     * key：序列化类型编号 {@link Serialization#getContentTypeId()}
+     */
     private static Map<Byte, Serialization> ID_SERIALIZATION_MAP = new HashMap<Byte, Serialization>();
+    /**
+     * 序列化名集合
+     * key：序列化类型编号 {@link Serialization#getContentTypeId()}
+     * value: 序列化拓展名
+     */
     private static Map<Byte, String> ID_SERIALIZATIONNAME_MAP = new HashMap<Byte, String>();
 
     static {
@@ -68,6 +80,7 @@ public class CodecSupport {
 
     public static Serialization getSerialization(URL url, Byte id) throws IOException {
         Serialization serialization = getSerializationById(id);
+        // 默认，hessian2
         String serializationName = url.getParameter(Constants.SERIALIZATION_KEY, Constants.DEFAULT_REMOTING_SERIALIZATION);
         // Check if "serialization id" passed from network matches the id on this side(only take effect for JDK serialization), for security purpose.
         if (serialization == null

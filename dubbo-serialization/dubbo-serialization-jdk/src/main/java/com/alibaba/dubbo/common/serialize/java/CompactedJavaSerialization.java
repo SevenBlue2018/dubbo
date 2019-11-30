@@ -25,6 +25,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 
+/**
+ * 在 Java 实现的基础上，实现了对 ClassDescriptor 的处理
+ */
 public class CompactedJavaSerialization implements Serialization {
 
     @Override

@@ -30,7 +30,7 @@ public class AdaptiveCompiler implements Compiler {
     private static volatile String DEFAULT_COMPILER;
 
     public static void setDefaultCompiler(String compiler) {
-        DEFAULT_COMPILER = compiler;
+        DEFAULT_COMPILER = compiler; // 设置默认编译器名称，ApplicationConfig会进行调用(<dubbo:application compiler="jdk"/>)
     }
 
     @Override
@@ -43,7 +43,7 @@ public class AdaptiveCompiler implements Compiler {
         } else {
             compiler = loader.getDefaultExtension();
         }
-        return compiler.compile(code, classLoader);
+        return compiler.compile(code, classLoader); // 通过ExtensionLoader获取对应的编译器扩展类实现，并调用真正的compile进行编译
     }
 
 }

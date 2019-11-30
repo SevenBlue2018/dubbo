@@ -59,12 +59,14 @@ public class ReferenceBean<T> extends ReferenceConfig<T> implements FactoryBean,
     @Override
     public void setApplicationContext(ApplicationContext applicationContext) {
         this.applicationContext = applicationContext;
-        SpringExtensionFactory.addApplicationContext(applicationContext);
+        SpringExtensionFactory.addApplicationContext(applicationContext); // 服务被引用时就会保存Spring的上下文
     }
 
     @Override
     public Object getObject() throws Exception {
-        return get();
+        return get(); // ReferenceConfig的get方法里就是通过Protocol#refer生成invoker，然后利用ProxyFactory转化为ref，最后将这个ref交给spring。对照书106页
+        // Consumer里通过Spring上下文获取demoService的实例时，其实获取的就是这个ref实例。所以当调用demoService.sayHello方法时才会进入动态代理的方法。ref内部又包装了invoker实例
+        // 所以才最终调用到invoker的invoke方法。
     }
 
     @Override

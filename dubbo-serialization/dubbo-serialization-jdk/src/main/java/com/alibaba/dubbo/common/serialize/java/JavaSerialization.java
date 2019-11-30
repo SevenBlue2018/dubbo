@@ -25,6 +25,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 
+/**
+ * 在 NativeJava 实现的基础上，实现了对空字符串和空对象的处理。
+ */
 public class JavaSerialization implements Serialization {
 
     @Override

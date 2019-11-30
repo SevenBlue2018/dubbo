@@ -21,6 +21,8 @@ import com.alibaba.dubbo.remoting.exchange.ExchangeChannel;
 
 /**
  * Replier. (API, Prototype, ThreadSafe)
+ * Request 对应统一的 ExchangeHandler 实现的对象。
+ * 但是在一些场景下，我们希望实现，不同的数据类型，对应不同的处理器。Replier 就是来处理这种情况的。一个数据类型，对应一个 Replier 对象
  */
 public interface Replier<T> {
 

@@ -24,6 +24,7 @@ import com.alibaba.dubbo.remoting.transport.ChannelHandlerDispatcher;
 
 /**
  * Transporter facade. (API, Static, ThreadSafe)
+ * Transporter 门面类
  */
 public class Transporters {
 
@@ -51,7 +52,7 @@ public class Transporters {
         if (handlers.length == 1) {
             handler = handlers[0];
         } else {
-            handler = new ChannelHandlerDispatcher(handlers);
+            handler = new ChannelHandlerDispatcher(handlers); // 若 handlers 是多个，使用 ChannelHandlerDispatcher 进行封装
         }
         return getTransporter().bind(url, handler);
     }
@@ -70,7 +71,7 @@ public class Transporters {
         } else if (handlers.length == 1) {
             handler = handlers[0];
         } else {
-            handler = new ChannelHandlerDispatcher(handlers);
+            handler = new ChannelHandlerDispatcher(handlers); // 若 handlers 是多个，使用 ChannelHandlerDispatcher 进行封装
         }
         return getTransporter().connect(url, handler);
     }

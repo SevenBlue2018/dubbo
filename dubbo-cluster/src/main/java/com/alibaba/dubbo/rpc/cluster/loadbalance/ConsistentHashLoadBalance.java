@@ -42,11 +42,11 @@ public class ConsistentHashLoadBalance extends AbstractLoadBalance {
     @SuppressWarnings("unchecked")
     @Override
     protected <T> Invoker<T> doSelect(List<Invoker<T>> invokers, URL url, Invocation invocation) {
-        String methodName = RpcUtils.getMethodName(invocation);
-        String key = invokers.get(0).getUrl().getServiceKey() + "." + methodName;
-        int identityHashCode = System.identityHashCode(invokers);
+        String methodName = RpcUtils.getMethodName(invocation); // 获取方法名
+        String key = invokers.get(0).getUrl().getServiceKey() + "." + methodName; // 接口名+方法名作为key
+        int identityHashCode = System.identityHashCode(invokers); // 把所有可以调用的Invoker列表进行哈希
         ConsistentHashSelector<T> selector = (ConsistentHashSelector<T>) selectors.get(key);
-        if (selector == null || selector.identityHashCode != identityHashCode) {
+        if (selector == null || selector.identityHashCode != identityHashCode) { // 如果哈希码值发生变化，则说明invokers列表发生了变化，需要重新创建Selector对象
             selectors.put(key, new ConsistentHashSelector<T>(invokers, methodName, identityHashCode));
             selector = (ConsistentHashSelector<T>) selectors.get(key);
         }
@@ -73,12 +73,12 @@ public class ConsistentHashLoadBalance extends AbstractLoadBalance {
             for (int i = 0; i < index.length; i++) {
                 argumentIndex[i] = Integer.parseInt(index[i]);
             }
-            for (Invoker<T> invoker : invokers) {
-                String address = invoker.getUrl().getAddress();
-                for (int i = 0; i < replicaNumber / 4; i++) {
-                    byte[] digest = md5(address + i);
+            for (Invoker<T> invoker : invokers) { // 遍历所有的节点
+                String address = invoker.getUrl().getAddress(); // 得到每个节点的ip
+                for (int i = 0; i < replicaNumber / 4; i++) { // replicaNumber是生成的虚拟节点数，默认160个
+                    byte[] digest = md5(address + i); // 以IP+递增数字进行MD5，作为节点标识
                     for (int h = 0; h < 4; h++) {
-                        long m = hash(digest, h);
+                        long m = hash(digest, h); // 对标识哈希得到TreeMap的key，invoker为value
                         virtualInvokers.put(m, invoker);
                     }
                 }
@@ -87,8 +87,8 @@ public class ConsistentHashLoadBalance extends AbstractLoadBalance {
 
         public Invoker<T> select(Invocation invocation) {
             String key = toKey(invocation.getArguments());
-            byte[] digest = md5(key);
-            return selectForKey(hash(digest, 0));
+            byte[] digest = md5(key); // 对请求参数md5
+            return selectForKey(hash(digest, 0)); // 利用tailMap实现环形顺时针向前查找
         }
 
         private String toKey(Object[] args) {

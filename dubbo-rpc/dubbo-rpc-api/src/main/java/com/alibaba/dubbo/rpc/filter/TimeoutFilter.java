@@ -41,7 +41,7 @@ public class TimeoutFilter implements Filter {
         long start = System.currentTimeMillis();
         Result result = invoker.invoke(invocation);
         long elapsed = System.currentTimeMillis() - start;
-        if (invoker.getUrl() != null
+        if (invoker.getUrl() != null // 超时了仅仅打印一条warn级别的日志，不影响调用
                 && elapsed > invoker.getUrl().getMethodParameter(invocation.getMethodName(),
                 "timeout", Integer.MAX_VALUE)) {
             if (logger.isWarnEnabled()) {

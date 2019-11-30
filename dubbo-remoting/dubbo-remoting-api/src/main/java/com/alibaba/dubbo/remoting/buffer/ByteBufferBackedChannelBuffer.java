@@ -22,10 +22,18 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
 
+/**
+ * 实现 AbstractChannelBuffer 抽象类，基于 java.nio.ByteBuffer 的 Buffer 实现类
+ */
 public class ByteBufferBackedChannelBuffer extends AbstractChannelBuffer {
-
+    /**
+     * buffer
+     * java.nio.ByteBuffer
+     */
     private final ByteBuffer buffer;
-
+    /**
+     * 容量
+     */
     private final int capacity;
 
     public ByteBufferBackedChannelBuffer(ByteBuffer buffer) {

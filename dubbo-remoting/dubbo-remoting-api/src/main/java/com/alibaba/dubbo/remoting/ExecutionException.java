@@ -20,7 +20,7 @@ import java.net.InetSocketAddress;
 
 /**
  * ReceiveException
- *
+ * 实现 RemotingException 类，执行异常
  * @export
  */
 public class ExecutionException extends RemotingException {

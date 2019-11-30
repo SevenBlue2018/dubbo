@@ -26,6 +26,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 
+/**
+ * 基于 Java 原生( 自带 )的 Java 序列化实现
+ */
 public class NativeJavaSerialization implements Serialization {
 
     public static final String NAME = "nativejava";

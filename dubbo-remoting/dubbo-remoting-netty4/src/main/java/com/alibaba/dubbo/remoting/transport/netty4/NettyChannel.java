@@ -34,6 +34,7 @@ import java.util.concurrent.ConcurrentMap;
 
 /**
  * NettyChannel.
+ * 实现 AbstractChannel 抽象类，封装 Netty Channel 的通道实现类
  */
 final class NettyChannel extends AbstractChannel {
 
@@ -95,14 +96,17 @@ final class NettyChannel extends AbstractChannel {
     public void send(Object message, boolean sent) throws RemotingException {
         super.send(message, sent);
 
-        boolean success = true;
+        boolean success = true; // 如果没有等待发送成功，默认成功。
         int timeout = 0;
         try {
+            // 发送消息
             ChannelFuture future = channel.writeAndFlush(message);
+            // 等待发送成功
             if (sent) {
                 timeout = getUrl().getPositiveParameter(Constants.TIMEOUT_KEY, Constants.DEFAULT_TIMEOUT);
                 success = future.await(timeout);
             }
+            // 若发生异常，抛出
             Throwable cause = future.cause();
             if (cause != null) {
                 throw cause;
@@ -110,7 +114,7 @@ final class NettyChannel extends AbstractChannel {
         } catch (Throwable e) {
             throw new RemotingException(this, "Failed to send message " + message + " to " + getRemoteAddress() + ", cause: " + e.getMessage(), e);
         }
-
+        // 发送失败，抛出异常
         if (!success) {
             throw new RemotingException(this, "Failed to send message " + message + " to " + getRemoteAddress()
                     + "in timeout(" + timeout + "ms) limit");
@@ -125,11 +129,13 @@ final class NettyChannel extends AbstractChannel {
             logger.warn(e.getMessage(), e);
         }
         try {
+            // 移除连接
             removeChannelIfDisconnected(channel);
         } catch (Exception e) {
             logger.warn(e.getMessage(), e);
         }
         try {
+            // 清空属性 attributes
             attributes.clear();
         } catch (Exception e) {
             logger.warn(e.getMessage(), e);
@@ -138,6 +144,7 @@ final class NettyChannel extends AbstractChannel {
             if (logger.isInfoEnabled()) {
                 logger.info("Close netty channel " + channel);
             }
+            // 关闭真正的通道 channel
             channel.close();
         } catch (Exception e) {
             logger.warn(e.getMessage(), e);

@@ -38,6 +38,8 @@ import java.util.concurrent.Future;
 
 /**
  * EventFilter
+ * 实现 Filter 接口，事件通知过滤器
+ * 就是用来实现Consumer端的事件通知(oninvoke/onreturn/onthrow三个事件)
  */
 @Activate(group = Constants.CONSUMER)
 public class FutureFilter implements Filter {
@@ -46,33 +48,54 @@ public class FutureFilter implements Filter {
 
     @Override
     public Result invoke(final Invoker<?> invoker, final Invocation invocation) throws RpcException {
-        final boolean isAsync = RpcUtils.isAsync(invoker.getUrl(), invocation);
-
+        // 获得是否异步调用
+        final boolean isAsync = RpcUtils.isAsync(invoker.getUrl(), invocation); // 查看Attachment里async的值或者url里方法名.async的值来判断是否异步
+        // 触发前置方法
         fireInvokeCallback(invoker, invocation);
         // need to configure if there's return value before the invocation in order to help invoker to judge if it's
         // necessary to return future.
+        // 调用方法
         Result result = invoker.invoke(invocation);
-        if (isAsync) {
+        // 触发回调方法
+        if (isAsync) { // 异步回调
             asyncCallback(invoker, invocation);
-        } else {
+        } else { // 同步回调
             syncCallback(invoker, invocation, result);
         }
         return result;
     }
 
+    /**
+     * 同步回调
+     * @param invoker
+     * @param invocation
+     * @param result
+     */
     private void syncCallback(final Invoker<?> invoker, final Invocation invocation, final Result result) {
-        if (result.hasException()) {
+        if (result.hasException()) { // 异常，触发异常回调
             fireThrowCallback(invoker, invocation, result.getException());
-        } else {
+        } else { // 正常，触发正常回调
             fireReturnCallback(invoker, invocation, result.getValue());
         }
     }
 
+    /**
+     * 异步回调
+     * @param invoker
+     * @param invocation
+     */
     private void asyncCallback(final Invoker<?> invoker, final Invocation invocation) {
+        // 获得 Future 对象
         Future<?> f = RpcContext.getContext().getFuture();
         if (f instanceof FutureAdapter) {
             ResponseFuture future = ((FutureAdapter<?>) f).getFuture();
+            // 触发回调(这里的future是Defuture实例对象，等于为该对象设置了callback的回调函数。
+            // 当服务端写响应结果到客户端，最终触发DefaultFuture.doReceived方法，该方法唤醒阻塞的等待线程，调用回调函数done方法执行)
             future.setCallback(new ResponseCallback() {
+                /**
+                 * 客户端接收到服务端响应结果后，就触发正常回调方法done(见DefaultFuture#doReceived方法)
+                 * @param rpcResult RPC 结果
+                 */
                 @Override
                 public void done(Object rpcResult) {
                     if (rpcResult == null) {
@@ -85,13 +108,17 @@ public class FutureFilter implements Filter {
                         return;
                     }
                     Result result = (Result) rpcResult;
-                    if (result.hasException()) {
+                    if (result.hasException()) { // 触发异常回调方法
                         fireThrowCallback(invoker, invocation, result.getException());
-                    } else {
+                    } else { // 触发正常回调方法
                         fireReturnCallback(invoker, invocation, result.getValue());
                     }
                 }
 
+                /**
+                 * 触发异常回调方法
+                 * @param exception 异常
+                 */
                 @Override
                 public void caught(Throwable exception) {
                     fireThrowCallback(invoker, invocation, exception);
@@ -100,7 +127,13 @@ public class FutureFilter implements Filter {
         }
     }
 
+    /**
+     * 触发前置方法
+     * @param invoker
+     * @param invocation
+     */
     private void fireInvokeCallback(final Invoker<?> invoker, final Invocation invocation) {
+        // 获得前置方法和对象
         final Method onInvokeMethod = (Method) StaticContext.getSystemContext().get(StaticContext.getKey(invoker.getUrl(), invocation.getMethodName(), Constants.ON_INVOKE_METHOD_KEY));
         final Object onInvokeInst = StaticContext.getSystemContext().get(StaticContext.getKey(invoker.getUrl(), invocation.getMethodName(), Constants.ON_INVOKE_INSTANCE_KEY));
 
@@ -113,7 +146,7 @@ public class FutureFilter implements Filter {
         if (!onInvokeMethod.isAccessible()) {
             onInvokeMethod.setAccessible(true);
         }
-
+        // 调用前置方法
         Object[] params = invocation.getArguments();
         try {
             onInvokeMethod.invoke(onInvokeInst, params);
@@ -125,6 +158,7 @@ public class FutureFilter implements Filter {
     }
 
     private void fireReturnCallback(final Invoker<?> invoker, final Invocation invocation, final Object result) {
+        // 获得 `onreturn` 方法和对象
         final Method onReturnMethod = (Method) StaticContext.getSystemContext().get(StaticContext.getKey(invoker.getUrl(), invocation.getMethodName(), Constants.ON_RETURN_METHOD_KEY));
         final Object onReturnInst = StaticContext.getSystemContext().get(StaticContext.getKey(invoker.getUrl(), invocation.getMethodName(), Constants.ON_RETURN_INSTANCE_KEY));
 
@@ -139,7 +173,7 @@ public class FutureFilter implements Filter {
         if (!onReturnMethod.isAccessible()) {
             onReturnMethod.setAccessible(true);
         }
-
+        // 参数数组
         Object[] args = invocation.getArguments();
         Object[] params;
         Class<?>[] rParaTypes = onReturnMethod.getParameterTypes();
@@ -156,6 +190,7 @@ public class FutureFilter implements Filter {
         } else {
             params = new Object[]{result};
         }
+        // 调用方法
         try {
             onReturnMethod.invoke(onReturnInst, params);
         } catch (InvocationTargetException e) {
@@ -166,6 +201,7 @@ public class FutureFilter implements Filter {
     }
 
     private void fireThrowCallback(final Invoker<?> invoker, final Invocation invocation, final Throwable exception) {
+        // 获得 `onthrow` 方法和对象
         final Method onthrowMethod = (Method) StaticContext.getSystemContext().get(StaticContext.getKey(invoker.getUrl(), invocation.getMethodName(), Constants.ON_THROW_METHOD_KEY));
         final Object onthrowInst = StaticContext.getSystemContext().get(StaticContext.getKey(invoker.getUrl(), invocation.getMethodName(), Constants.ON_THROW_INSTANCE_KEY));
 
@@ -182,6 +218,7 @@ public class FutureFilter implements Filter {
         Class<?>[] rParaTypes = onthrowMethod.getParameterTypes();
         if (rParaTypes[0].isAssignableFrom(exception.getClass())) {
             try {
+                // 参数数组
                 Object[] args = invocation.getArguments();
                 Object[] params;
 
@@ -198,11 +235,12 @@ public class FutureFilter implements Filter {
                 } else {
                     params = new Object[]{exception};
                 }
+                // 调用方法
                 onthrowMethod.invoke(onthrowInst, params);
             } catch (Throwable e) {
                 logger.error(invocation.getMethodName() + ".call back method invoke error . callback method :" + onthrowMethod + ", url:" + invoker.getUrl(), e);
             }
-        } else {
+        } else { // 不符合异常，打印错误日志
             logger.error(invocation.getMethodName() + ".call back method invoke error . callback method :" + onthrowMethod + ", url:" + invoker.getUrl(), exception);
         }
     }

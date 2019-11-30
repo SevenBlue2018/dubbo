@@ -128,7 +128,7 @@ public class DubboConfigBindingBeanPostProcessor implements BeanPostProcessor, A
 
     @Override
     public void afterPropertiesSet() throws Exception {
-
+        // 获得（创建）DubboConfigBinder 对象
         if (dubboConfigBinder == null) {
             try {
                 dubboConfigBinder = applicationContext.getBean(DubboConfigBinder.class);
@@ -140,7 +140,7 @@ public class DubboConfigBindingBeanPostProcessor implements BeanPostProcessor, A
                 dubboConfigBinder = createDubboConfigBinder(applicationContext.getEnvironment());
             }
         }
-
+        // 设置 ignoreUnknownFields、ignoreInvalidFields 属性
         dubboConfigBinder.setIgnoreUnknownFields(ignoreUnknownFields);
         dubboConfigBinder.setIgnoreInvalidFields(ignoreInvalidFields);
 

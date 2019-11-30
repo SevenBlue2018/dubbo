@@ -16,30 +16,30 @@
  */
 package com.alibaba.dubbo.demo.consumer;
 
-import com.alibaba.dubbo.demo.DemoService;
-import com.alibaba.dubbo.rpc.service.EchoService;
+import com.alibaba.dubbo.rpc.service.GenericService;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
 import java.io.IOException;
 
-public class Consumer {
+/**
+ * 泛化调用(此时不需要引入接口包，因为不需要明确接口使用GenericService即可)
+ */
+public class GenericConsumer {
 
     public static void main(String[] args) throws IOException {
         //Prevent to get IPV6 address,this way only work in debug mode
         //But you can pass use -Djava.net.preferIPv4Stack=true,then it work well whether in debug mode or not
         System.setProperty("java.net.preferIPv4Stack", "true");
-        ClassPathXmlApplicationContext context = new ClassPathXmlApplicationContext(new String[]{"META-INF/spring/dubbo-demo-consumer.xml"});
+        ClassPathXmlApplicationContext context = new ClassPathXmlApplicationContext(new String[]{"META-INF/spring/dubbo-demo-genericConsumer.xml"});
         context.start();
-        DemoService demoService = (DemoService) context.getBean("demoService"); // get remote service proxy
+        GenericService demoService = (GenericService) context.getBean("demoService"); // get remote service proxy
         int i=0;
         while (i++>=0) {
             try {
                 Thread.sleep(1000);
                 // 目标调用
-                String hello = demoService.sayHello("world"); // call remote method
-                // 回声测试
-//                Object hello = ((EchoService)demoService).$echo("ok");
-                System.out.println("服务端返回结果：" + hello); // get result
+                Object hello = demoService.$invoke("sayHello", new String[]{"java.lang.String"}, new Object[]{"world"} ); // call remote method
+                System.out.println(hello); // get result
 
             } catch (Throwable throwable) {
                 throwable.printStackTrace();

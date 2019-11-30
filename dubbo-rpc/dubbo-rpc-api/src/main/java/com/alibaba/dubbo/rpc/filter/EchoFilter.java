@@ -33,6 +33,7 @@ public class EchoFilter implements Filter {
 
     @Override
     public Result invoke(Invoker<?> invoker, Invocation inv) throws RpcException {
+        // echo进行回声测试，校验服务是否可用(所有的服务默认都实现了EchoService接口，只有一个方法$echo，方法只有一个参数)
         if (inv.getMethodName().equals(Constants.$ECHO) && inv.getArguments() != null && inv.getArguments().length == 1)
             return new RpcResult(inv.getArguments()[0]);
         return invoker.invoke(inv);

@@ -61,13 +61,25 @@ public class RpcContext {
             return new RpcContext();
         }
     };
-
+    /**
+     * 隐式参数集合
+     */
     private final Map<String, String> attachments = new HashMap<String, String>();
+    /**
+     * 如果我们希望有多次 Dubbo 调用，共享参数，并且不被 ConsumerContextFilter 清理隐式参数，笔者觉得可以使用该 values 属性。
+     */
     private final Map<String, Object> values = new HashMap<String, Object>();
+    /**
+     * 异步调用 Future
+     */
     private Future<?> future;
-
+    /**
+     * 可调用服务的 URL 对象集合
+     */
     private List<URL> urls;
-
+    /**
+     * 调用服务的 URL 对象
+     */
     private URL url;
 
     private String methodName;
@@ -88,7 +100,15 @@ public class RpcContext {
 
     // now we don't use the 'values' map to hold these objects
     // we want these objects to be as generic as possible
+    /**
+     * 请求
+     * 例如，在 RestProtocol
+     */
     private Object request;
+    /**
+     * 响应
+     * 例如，在 RestProtocol
+     */
     private Object response;
 
     protected RpcContext() {

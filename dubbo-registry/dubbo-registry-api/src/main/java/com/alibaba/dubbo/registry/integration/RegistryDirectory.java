@@ -182,6 +182,7 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
 
     @Override
     public synchronized void notify(List<URL> urls) {
+        // 监听配置中心对应的URL变化，更新本地配置参数
         List<URL> invokerUrls = new ArrayList<URL>();
         List<URL> routerUrls = new ArrayList<URL>();
         List<URL> configuratorUrls = new ArrayList<URL>();
@@ -202,13 +203,13 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
         }
         // configurators
         if (configuratorUrls != null && !configuratorUrls.isEmpty()) {
-            this.configurators = toConfigurators(configuratorUrls);
+            this.configurators = toConfigurators(configuratorUrls); // 通过Configurator工厂把每个URL包装成Configurator
         }
         // routers
         if (routerUrls != null && !routerUrls.isEmpty()) {
-            List<Router> routers = toRouters(routerUrls);
+            List<Router> routers = toRouters(routerUrls); // 通过Router工厂把每个URL包装成路由规则
             if (routers != null) { // null - do nothing
-                setRouters(routers);
+                setRouters(routers); // 更新本地路由信息
             }
         }
         List<Configurator> localConfigurators = this.configurators; // local reference
@@ -221,152 +222,153 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
         }
         // providers
         refreshInvoker(invokerUrls);
-    }
 
-    /**
-     * Convert the invokerURL list to the Invoker Map. The rules of the conversion are as follows:
-     * 1.If URL has been converted to invoker, it is no longer re-referenced and obtained directly from the cache, and notice that any parameter changes in the URL will be re-referenced.
-     * 2.If the incoming invoker list is not empty, it means that it is the latest invoker list
-     * 3.If the list of incoming invokerUrl is empty, It means that the rule is only a override rule or a route rule, which needs to be re-contrasted to decide whether to re-reference.
-     *
-     * @param invokerUrls this parameter can't be null
-     */
-    // TODO: 2017/8/31 FIXME The thread pool should be used to refresh the address, otherwise the task may be accumulated.
-    private void refreshInvoker(List<URL> invokerUrls) {
-        if (invokerUrls != null && invokerUrls.size() == 1 && invokerUrls.get(0) != null
-                && Constants.EMPTY_PROTOCOL.equals(invokerUrls.get(0).getProtocol())) {
-            this.forbidden = true; // Forbid to access
-            this.methodInvokerMap = null; // Set the method invoker map to null
-            destroyAllInvokers(); // Close all invokers
-        } else {
-            this.forbidden = false; // Allow to access
-            Map<String, Invoker<T>> oldUrlInvokerMap = this.urlInvokerMap; // local reference
-            if (invokerUrls.isEmpty() && this.cachedInvokerUrls != null) {
-                invokerUrls.addAll(this.cachedInvokerUrls);
+        }
+
+        /**
+         * Convert the invokerURL list to the Invoker Map. The rules of the conversion are as follows:
+         * 1.If URL has been converted to invoker, it is no longer re-referenced and obtained directly from the cache, and notice that any parameter changes in the URL will be re-referenced.
+         * 2.If the incoming invoker list is not empty, it means that it is the latest invoker list
+         * 3.If the list of incoming invokerUrl is empty, It means that the rule is only a override rule or a route rule, which needs to be re-contrasted to decide whether to re-reference.
+         *
+         * @param invokerUrls this parameter can't be null
+         */
+        // TODO: 2017/8/31 FIXME The thread pool should be used to refresh the address, otherwise the task may be accumulated.
+        private void refreshInvoker(List<URL> invokerUrls) {
+            if (invokerUrls != null && invokerUrls.size() == 1 && invokerUrls.get(0) != null
+                    && Constants.EMPTY_PROTOCOL.equals(invokerUrls.get(0).getProtocol())) { // 监听到的invoker类型参数是empty协议，则禁用该服务，销毁本地缓存的invoker
+                this.forbidden = true; // Forbid to access
+                this.methodInvokerMap = null; // Set the method invoker map to null
+                destroyAllInvokers(); // Close all invokers
             } else {
-                this.cachedInvokerUrls = new HashSet<URL>();
-                this.cachedInvokerUrls.addAll(invokerUrls);//Cached invoker urls, convenient for comparison
-            }
-            if (invokerUrls.isEmpty()) {
-                return;
-            }
-            Map<String, Invoker<T>> newUrlInvokerMap = toInvokers(invokerUrls);// Translate url list to Invoker map
-            Map<String, List<Invoker<T>>> newMethodInvokerMap = toMethodInvokers(newUrlInvokerMap); // Change method name to map Invoker Map
-            // state change
-            // If the calculation is wrong, it is not processed.
-            if (newUrlInvokerMap == null || newUrlInvokerMap.size() == 0) {
-                logger.error(new IllegalStateException("urls to invokers error .invokerUrls.size :" + invokerUrls.size() + ", invoker.size :0. urls :" + invokerUrls.toString()));
-                return;
-            }
-            this.methodInvokerMap = multiGroup ? toMergeMethodInvokerMap(newMethodInvokerMap) : newMethodInvokerMap;
-            this.urlInvokerMap = newUrlInvokerMap;
-            try {
-                destroyUnusedInvokers(oldUrlInvokerMap, newUrlInvokerMap); // Close the unused Invoker
-            } catch (Exception e) {
-                logger.warn("destroyUnusedInvokers error. ", e);
-            }
-        }
-    }
-
-    private Map<String, List<Invoker<T>>> toMergeMethodInvokerMap(Map<String, List<Invoker<T>>> methodMap) {
-        Map<String, List<Invoker<T>>> result = new HashMap<String, List<Invoker<T>>>();
-        for (Map.Entry<String, List<Invoker<T>>> entry : methodMap.entrySet()) {
-            String method = entry.getKey();
-            List<Invoker<T>> invokers = entry.getValue();
-            Map<String, List<Invoker<T>>> groupMap = new HashMap<String, List<Invoker<T>>>();
-            for (Invoker<T> invoker : invokers) {
-                String group = invoker.getUrl().getParameter(Constants.GROUP_KEY, "");
-                List<Invoker<T>> groupInvokers = groupMap.get(group);
-                if (groupInvokers == null) {
-                    groupInvokers = new ArrayList<Invoker<T>>();
-                    groupMap.put(group, groupInvokers);
+                this.forbidden = false; // Allow to access
+                Map<String, Invoker<T>> oldUrlInvokerMap = this.urlInvokerMap; // local reference
+                if (invokerUrls.isEmpty() && this.cachedInvokerUrls != null) { // 监听到的invoker类型url为空，则使用本地原有缓存
+                    invokerUrls.addAll(this.cachedInvokerUrls);
+                } else { // 不为空则进行合并
+                    this.cachedInvokerUrls = new HashSet<URL>();
+                    this.cachedInvokerUrls.addAll(invokerUrls);//Cached invoker urls, convenient for comparison
                 }
-                groupInvokers.add(invoker);
-            }
-            if (groupMap.size() == 1) {
-                result.put(method, groupMap.values().iterator().next());
-            } else if (groupMap.size() > 1) {
-                List<Invoker<T>> groupInvokers = new ArrayList<Invoker<T>>();
-                for (List<Invoker<T>> groupList : groupMap.values()) {
-                    groupInvokers.add(cluster.join(new StaticDirectory<T>(groupList)));
+                if (invokerUrls.isEmpty()) {
+                    return;
                 }
-                result.put(method, groupInvokers);
-            } else {
-                result.put(method, invokers);
-            }
-        }
-        return result;
-    }
-
-    /**
-     * @param urls
-     * @return null : no routers ,do nothing
-     * else :routers list
-     */
-    private List<Router> toRouters(List<URL> urls) {
-        List<Router> routers = new ArrayList<Router>();
-        if (urls == null || urls.isEmpty()) {
-            return routers;
-        }
-        if (urls != null && !urls.isEmpty()) {
-            for (URL url : urls) {
-                if (Constants.EMPTY_PROTOCOL.equals(url.getProtocol())) {
-                    continue;
+                // 找出差异的旧invoker，进行销毁
+                Map<String, Invoker<T>> newUrlInvokerMap = toInvokers(invokerUrls);// Translate url list to Invoker map
+                Map<String, List<Invoker<T>>> newMethodInvokerMap = toMethodInvokers(newUrlInvokerMap); // Change method name to map Invoker Map
+                // state change
+                // If the calculation is wrong, it is not processed.
+                if (newUrlInvokerMap == null || newUrlInvokerMap.size() == 0) {
+                    logger.error(new IllegalStateException("urls to invokers error .invokerUrls.size :" + invokerUrls.size() + ", invoker.size :0. urls :" + invokerUrls.toString()));
+                    return;
                 }
-                String routerType = url.getParameter(Constants.ROUTER_KEY);
-                if (routerType != null && routerType.length() > 0) {
-                    url = url.setProtocol(routerType);
-                }
+                this.methodInvokerMap = multiGroup ? toMergeMethodInvokerMap(newMethodInvokerMap) : newMethodInvokerMap;
+                this.urlInvokerMap = newUrlInvokerMap;
                 try {
-                    Router router = routerFactory.getRouter(url);
-                    if (!routers.contains(router))
-                        routers.add(router);
-                } catch (Throwable t) {
-                    logger.error("convert router url to router error, url: " + url, t);
+                    destroyUnusedInvokers(oldUrlInvokerMap, newUrlInvokerMap); // Close the unused Invoker
+                } catch (Exception e) {
+                    logger.warn("destroyUnusedInvokers error. ", e);
                 }
             }
         }
-        return routers;
-    }
 
-    /**
-     * Turn urls into invokers, and if url has been refer, will not re-reference.
-     *
-     * @param urls
-     * @return invokers
-     */
-    private Map<String, Invoker<T>> toInvokers(List<URL> urls) {
-        Map<String, Invoker<T>> newUrlInvokerMap = new HashMap<String, Invoker<T>>();
-        if (urls == null || urls.isEmpty()) {
-            return newUrlInvokerMap;
+        private Map<String, List<Invoker<T>>> toMergeMethodInvokerMap(Map<String, List<Invoker<T>>> methodMap) {
+            Map<String, List<Invoker<T>>> result = new HashMap<String, List<Invoker<T>>>();
+            for (Map.Entry<String, List<Invoker<T>>> entry : methodMap.entrySet()) {
+                String method = entry.getKey();
+                List<Invoker<T>> invokers = entry.getValue();
+                Map<String, List<Invoker<T>>> groupMap = new HashMap<String, List<Invoker<T>>>();
+                for (Invoker<T> invoker : invokers) {
+                    String group = invoker.getUrl().getParameter(Constants.GROUP_KEY, "");
+                    List<Invoker<T>> groupInvokers = groupMap.get(group);
+                    if (groupInvokers == null) {
+                        groupInvokers = new ArrayList<Invoker<T>>();
+                        groupMap.put(group, groupInvokers);
+                    }
+                    groupInvokers.add(invoker);
+                }
+                if (groupMap.size() == 1) {
+                    result.put(method, groupMap.values().iterator().next());
+                } else if (groupMap.size() > 1) {
+                    List<Invoker<T>> groupInvokers = new ArrayList<Invoker<T>>();
+                    for (List<Invoker<T>> groupList : groupMap.values()) {
+                        groupInvokers.add(cluster.join(new StaticDirectory<T>(groupList)));
+                    }
+                    result.put(method, groupInvokers);
+                } else {
+                    result.put(method, invokers);
+                }
+            }
+            return result;
         }
-        Set<String> keys = new HashSet<String>();
-        String queryProtocols = this.queryMap.get(Constants.PROTOCOL_KEY);
-        for (URL providerUrl : urls) {
-            // If protocol is configured at the reference side, only the matching protocol is selected
-            if (queryProtocols != null && queryProtocols.length() > 0) {
-                boolean accept = false;
-                String[] acceptProtocols = queryProtocols.split(",");
-                for (String acceptProtocol : acceptProtocols) {
-                    if (providerUrl.getProtocol().equals(acceptProtocol)) {
-                        accept = true;
-                        break;
+
+        /**
+         * @param urls
+         * @return null : no routers ,do nothing
+         * else :routers list
+         */
+        private List<Router> toRouters(List<URL> urls) {
+            List<Router> routers = new ArrayList<Router>();
+            if (urls == null || urls.isEmpty()) {
+                return routers;
+            }
+            if (urls != null && !urls.isEmpty()) {
+                for (URL url : urls) {
+                    if (Constants.EMPTY_PROTOCOL.equals(url.getProtocol())) {
+                        continue;
+                    }
+                    String routerType = url.getParameter(Constants.ROUTER_KEY);
+                    if (routerType != null && routerType.length() > 0) {
+                        url = url.setProtocol(routerType);
+                    }
+                    try {
+                        Router router = routerFactory.getRouter(url);
+                        if (!routers.contains(router))
+                            routers.add(router);
+                    } catch (Throwable t) {
+                        logger.error("convert router url to router error, url: " + url, t);
                     }
                 }
-                if (!accept) {
+            }
+            return routers;
+        }
+
+        /**
+         * Turn urls into invokers, and if url has been refer, will not re-reference.
+         *
+         * @param urls
+         * @return invokers
+         */
+        private Map<String, Invoker<T>> toInvokers(List<URL> urls) {
+            Map<String, Invoker<T>> newUrlInvokerMap = new HashMap<String, Invoker<T>>();
+            if (urls == null || urls.isEmpty()) {
+                return newUrlInvokerMap;
+            }
+            Set<String> keys = new HashSet<String>();
+            String queryProtocols = this.queryMap.get(Constants.PROTOCOL_KEY);
+            for (URL providerUrl : urls) {
+                // If protocol is configured at the reference side, only the matching protocol is selected
+                if (queryProtocols != null && queryProtocols.length() > 0) {
+                    boolean accept = false;
+                    String[] acceptProtocols = queryProtocols.split(",");
+                    for (String acceptProtocol : acceptProtocols) {
+                        if (providerUrl.getProtocol().equals(acceptProtocol)) {
+                            accept = true;
+                            break;
+                        }
+                    }
+                    if (!accept) {
+                        continue;
+                    }
+                }
+                if (Constants.EMPTY_PROTOCOL.equals(providerUrl.getProtocol())) {
                     continue;
                 }
-            }
-            if (Constants.EMPTY_PROTOCOL.equals(providerUrl.getProtocol())) {
-                continue;
-            }
-            if (!ExtensionLoader.getExtensionLoader(Protocol.class).hasExtension(providerUrl.getProtocol())) {
-                logger.error(new IllegalStateException("Unsupported protocol " + providerUrl.getProtocol() + " in notified url: " + providerUrl + " from registry " + getUrl().getAddress() + " to consumer " + NetUtils.getLocalHost()
-                        + ", supported protocol: " + ExtensionLoader.getExtensionLoader(Protocol.class).getSupportedExtensions()));
-                continue;
-            }
-            URL url = mergeUrl(providerUrl);
-
+                if (!ExtensionLoader.getExtensionLoader(Protocol.class).hasExtension(providerUrl.getProtocol())) {
+                    logger.error(new IllegalStateException("Unsupported protocol " + providerUrl.getProtocol() + " in notified url: " + providerUrl + " from registry " + getUrl().getAddress() + " to consumer " + NetUtils.getLocalHost()
+                            + ", supported protocol: " + ExtensionLoader.getExtensionLoader(Protocol.class).getSupportedExtensions()));
+                    continue;
+                }
+                URL url = mergeUrl(providerUrl); // 合并provider端配置数据，比如服务端ip和端口等等
             String key = url.toFullString(); // The parameter urls are sorted
             if (keys.contains(key)) { // Repeated url
                 continue;
@@ -384,7 +386,7 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
                         enabled = url.getParameter(Constants.ENABLED_KEY, true);
                     }
                     if (enabled) {
-                        invoker = new InvokerDelegate<T>(protocol.refer(serviceType, url), url, providerUrl);
+                        invoker = new InvokerDelegate<T>(protocol.refer(serviceType, url), url, providerUrl); // 使用具体协议创建远程连接
                     }
                 } catch (Throwable t) {
                     logger.error("Failed to refer invoker for interface:" + serviceType + ",url:(" + url + ")" + t.getMessage(), t);
@@ -570,7 +572,7 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
 
     @Override
     public List<Invoker<T>> doList(Invocation invocation) {
-        if (forbidden) {
+        if (forbidden) { // 检查服务是否被禁用，如果被禁用，则该服务无法被调用，抛出异常
             // 1. No service provider 2. Service providers are disabled
             throw new RpcException(RpcException.FORBIDDEN_EXCEPTION,
                 "No provider available from registry " + getUrl().getAddress() + " for service " + getConsumerUrl().getServiceKey() + " on consumer " +  NetUtils.getLocalHost()
@@ -578,20 +580,20 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
         }
         List<Invoker<T>> invokers = null;
         Map<String, List<Invoker<T>>> localMethodInvokerMap = this.methodInvokerMap; // local reference
-        if (localMethodInvokerMap != null && localMethodInvokerMap.size() > 0) {
+        if (localMethodInvokerMap != null && localMethodInvokerMap.size() > 0) { // 遍历缓存的invokers
             String methodName = RpcUtils.getMethodName(invocation);
             Object[] args = RpcUtils.getArguments(invocation);
             if (args != null && args.length > 0 && args[0] != null
-                    && (args[0] instanceof String || args[0].getClass().isEnum())) {
+                    && (args[0] instanceof String || args[0].getClass().isEnum())) { // 依据方法名和首个参数的方式查找invokers里符合的invoker
                 invokers = localMethodInvokerMap.get(methodName + "." + args[0]); // The routing can be enumerated according to the first parameter
             }
-            if (invokers == null) {
+            if (invokers == null) { // 找不到则依据方法名查找invokers里符合的invoker
                 invokers = localMethodInvokerMap.get(methodName);
             }
-            if (invokers == null) {
+            if (invokers == null) { // 找不到则依据*查找invokers里符合的invoker
                 invokers = localMethodInvokerMap.get(Constants.ANY_VALUE);
             }
-            if (invokers == null) {
+            if (invokers == null) { // 找不到则遍历缓存找到第一个invoker
                 Iterator<List<Invoker<T>>> iterator = localMethodInvokerMap.values().iterator();
                 if (iterator.hasNext()) {
                     invokers = iterator.next();

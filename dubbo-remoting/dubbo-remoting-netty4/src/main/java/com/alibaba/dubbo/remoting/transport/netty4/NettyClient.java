@@ -40,6 +40,7 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * NettyClient.
+ * 继承 AbstractNettyClient 抽象类，Netty 客户端实现类。
  */
 public class NettyClient extends AbstractClient {
 
@@ -76,6 +77,7 @@ public class NettyClient extends AbstractClient {
 
             @Override
             protected void initChannel(Channel ch) throws Exception {
+                // 创建 NettyCodecAdapter 对象
                 NettyCodecAdapter adapter = new NettyCodecAdapter(getCodec(), getUrl(), NettyClient.this);
                 ch.pipeline()//.addLast("logging",new LoggingHandler(LogLevel.INFO))//for debug
                         .addLast("decoder", adapter.getDecoder())
@@ -88,8 +90,10 @@ public class NettyClient extends AbstractClient {
     @Override
     protected void doConnect() throws Throwable {
         long start = System.currentTimeMillis();
+        // 连接服务器
         ChannelFuture future = bootstrap.connect(getConnectAddress());
         try {
+            // 等待连接成功或者超时
             boolean ret = future.awaitUninterruptibly(getConnectTimeout(), TimeUnit.MILLISECONDS);
 
             if (ret && future.isSuccess()) {
@@ -122,10 +126,10 @@ public class NettyClient extends AbstractClient {
                         NettyClient.this.channel = newChannel;
                     }
                 }
-            } else if (future.cause() != null) {
+            } else if (future.cause() != null) { // 发生异常，抛出 RemotingException 异常
                 throw new RemotingException(this, "client(url: " + getUrl() + ") failed to connect to server "
                         + getRemoteAddress() + ", error message is:" + future.cause().getMessage(), future.cause());
-            } else {
+            } else { // 无结果（连接超时），抛出 RemotingException 异常
                 throw new RemotingException(this, "client(url: " + getUrl() + ") failed to connect to server "
                         + getRemoteAddress() + " client-side timeout "
                         + getConnectTimeout() + "ms (elapsed: " + (System.currentTimeMillis() - start) + "ms) from netty client "

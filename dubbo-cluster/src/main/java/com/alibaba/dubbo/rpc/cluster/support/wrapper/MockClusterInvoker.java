@@ -68,12 +68,12 @@ public class MockClusterInvoker<T> implements Invoker<T> {
     @Override
     public Result invoke(Invocation invocation) throws RpcException {
         Result result = null;
-
+        // 获取Invoker的Mock参数
         String value = directory.getUrl().getMethodParameter(invocation.getMethodName(), Constants.MOCK_KEY, Boolean.FALSE.toString()).trim();
         if (value.length() == 0 || value.equalsIgnoreCase("false")) {
             //no mock
             result = this.invoker.invoke(invocation);
-        } else if (value.startsWith("force")) {
+        } else if (value.startsWith("force")) { // 判断是否强制mock
             if (logger.isWarnEnabled()) {
                 logger.info("force-mock: " + invocation.getMethodName() + " force-mock enabled , url : " + directory.getUrl());
             }
@@ -90,7 +90,7 @@ public class MockClusterInvoker<T> implements Invoker<T> {
                     if (logger.isWarnEnabled()) {
                         logger.warn("fail-mock: " + invocation.getMethodName() + " fail-mock enabled , url : " + directory.getUrl(), e);
                     }
-                    result = doMockInvoke(invocation, e);
+                    result = doMockInvoke(invocation, e); // 执行失败后调用mock逻辑
                 }
             }
         }
@@ -102,14 +102,14 @@ public class MockClusterInvoker<T> implements Invoker<T> {
         Result result = null;
         Invoker<T> minvoker;
 
-        List<Invoker<T>> mockInvokers = selectMockInvoker(invocation);
+        List<Invoker<T>> mockInvokers = selectMockInvoker(invocation); // 获取所有Mock类型的invoker
         if (mockInvokers == null || mockInvokers.isEmpty()) {
-            minvoker = (Invoker<T>) new MockInvoker(directory.getUrl());
+            minvoker = (Invoker<T>) new MockInvoker(directory.getUrl()); // 不存在则创建一个
         } else {
-            minvoker = mockInvokers.get(0);
+            minvoker = mockInvokers.get(0); // 存在则返回第一个
         }
         try {
-            result = minvoker.invoke(invocation);
+            result = minvoker.invoke(invocation); // 调用MockInvoker的invoke方法
         } catch (RpcException me) {
             if (me.isBiz()) {
                 result = new RpcResult(me.getCause());

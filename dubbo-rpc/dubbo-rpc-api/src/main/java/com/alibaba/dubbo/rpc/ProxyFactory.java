@@ -40,6 +40,7 @@ public interface ProxyFactory {
      * create proxy.
      *
      * @param invoker
+     * @param generic 标识这个代理是否是泛化调用
      * @return proxy
      */
     @Adaptive({Constants.PROXY_KEY})

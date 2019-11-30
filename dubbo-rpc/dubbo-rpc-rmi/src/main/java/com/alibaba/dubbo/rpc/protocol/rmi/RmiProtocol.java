@@ -35,6 +35,7 @@ import java.rmi.RemoteException;
 
 /**
  * RmiProtocol.
+ * 实现 AbstractProxyProtocol 抽象类，rmi:// 协议实现类
  */
 public class RmiProtocol extends AbstractProxyProtocol {
 

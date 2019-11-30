@@ -30,7 +30,7 @@ public class MockClusterWrapper implements Cluster {
     private Cluster cluster;
 
     public MockClusterWrapper(Cluster cluster) {
-        this.cluster = cluster;
+        this.cluster = cluster; // 利用ExtensionLoader.createExtension 触发的
     }
 
     @Override

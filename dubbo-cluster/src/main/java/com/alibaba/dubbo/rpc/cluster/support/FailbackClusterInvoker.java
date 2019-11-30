@@ -99,7 +99,7 @@ public class FailbackClusterInvoker<T> extends AbstractClusterInvoker<T> {
                 invoker.invoke(invocation);
                 failed.remove(invocation);
             } catch (Throwable e) {
-                logger.error("Failed retry to invoke method " + invocation.getMethodName() + ", waiting again.", e);
+                logger.error("Failed retry to invoke method " + invocation.getMethodName() + ", waiting again.", e); // 重试还是失败，只打印日志，防止异常中断重试过程
             }
         }
     }
@@ -113,7 +113,7 @@ public class FailbackClusterInvoker<T> extends AbstractClusterInvoker<T> {
         } catch (Throwable e) {
             logger.error("Failback to invoke method " + invocation.getMethodName() + ", wait for retry in background. Ignored exception: "
                     + e.getMessage() + ", ", e);
-            addFailed(invocation, this);
+            addFailed(invocation, this); //
             return new RpcResult(); // ignore
         }
     }

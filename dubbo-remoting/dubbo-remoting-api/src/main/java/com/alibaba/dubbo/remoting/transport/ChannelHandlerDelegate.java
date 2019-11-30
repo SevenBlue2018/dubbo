@@ -18,6 +18,10 @@ package com.alibaba.dubbo.remoting.transport;
 
 import com.alibaba.dubbo.remoting.ChannelHandler;
 
+/**
+ * 实现 ChannelHandler 接口，通道处理器装饰者接口。
+ * 装饰器模式，在 dubbo-remoting-api 扮演了非常重要的角色，那么最佳演员就是 ChannelHandlerDelegate 们
+ */
 public interface ChannelHandlerDelegate extends ChannelHandler {
     ChannelHandler getHandler();
 }

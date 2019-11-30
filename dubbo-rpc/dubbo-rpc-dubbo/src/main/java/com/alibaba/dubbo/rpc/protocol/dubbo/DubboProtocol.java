@@ -62,10 +62,28 @@ public class DubboProtocol extends AbstractProtocol {
     public static final int DEFAULT_PORT = 20880;
     private static final String IS_CALLBACK_SERVICE_INVOKE = "_isCallBackServiceInvoke";
     private static DubboProtocol INSTANCE;
+    /**
+     * 通信服务器集合
+     *
+     * key: 服务器地址。格式为：host:port
+     */
     private final Map<String, ExchangeServer> serverMap = new ConcurrentHashMap<String, ExchangeServer>(); // <host:port,Exchanger>
+    /**
+     * 通信客户端集合
+     *
+     * key: 服务器地址。格式为：host:port
+     */
     private final Map<String, ReferenceCountExchangeClient> referenceClientMap = new ConcurrentHashMap<String, ReferenceCountExchangeClient>(); // <host:port,Exchanger>
+    /**
+     * TODO 8030 ，这个是什么用途啊。
+     *
+     * key: 服务器地址。格式为：host:port 。和 {@link #referenceClientMap} Key ，是一致的。
+     */
     private final ConcurrentMap<String, LazyConnectExchangeClient> ghostClientMap = new ConcurrentHashMap<String, LazyConnectExchangeClient>();
     private final ConcurrentMap<String, Object> locks = new ConcurrentHashMap<String, Object>();
+    /**
+     * 已初始化的 SerializationOptimizer 实现类名的集合
+     */
     private final Set<String> optimizers = new ConcurrentHashSet<String>();
     //consumer side export a stub service for dispatching event
     //servicekey-stubmethods
@@ -76,40 +94,45 @@ public class DubboProtocol extends AbstractProtocol {
         public Object reply(ExchangeChannel channel, Object message) throws RemotingException {
             if (message instanceof Invocation) {
                 Invocation inv = (Invocation) message;
-                Invoker<?> invoker = getInvoker(channel, inv);
-                // need to consider backward-compatibility if it's a callback
-                if (Boolean.TRUE.toString().equals(inv.getAttachments().get(IS_CALLBACK_SERVICE_INVOKE))) {
-                    String methodsStr = invoker.getUrl().getParameters().get("methods");
-                    boolean hasMethod = false;
-                    if (methodsStr == null || methodsStr.indexOf(",") == -1) {
-                        hasMethod = inv.getMethodName().equals(methodsStr);
-                    } else {
-                        String[] methods = methodsStr.split(",");
-                        for (String method : methods) {
-                            if (inv.getMethodName().equals(method)) {
-                                hasMethod = true;
-                                break;
-                            }
+                // 获得请求对应的 Invoker 对象
+                Invoker<?> invoker = getInvoker(channel, inv); // 查找Invocation关联的Invoker
+            // 如果是callback 需要处理高版本调用低版本的问题
+            // need to consider backward-compatibility if it's a callback
+            if (Boolean.TRUE.toString().equals(inv.getAttachments().get(IS_CALLBACK_SERVICE_INVOKE))) {
+                String methodsStr = invoker.getUrl().getParameters().get("methods");
+                boolean hasMethod = false;
+                if (methodsStr == null || methodsStr.indexOf(",") == -1) {
+                    hasMethod = inv.getMethodName().equals(methodsStr);
+                } else {
+                    String[] methods = methodsStr.split(",");
+                    for (String method : methods) {
+                        if (inv.getMethodName().equals(method)) {
+                            hasMethod = true;
+                            break;
                         }
                     }
-                    if (!hasMethod) {
-                        logger.warn(new IllegalStateException("The methodName " + inv.getMethodName()
-                                + " not found in callback service interface ,invoke will be ignored."
-                                + " please update the api interface. url is:"
-                                + invoker.getUrl()) + " ,invocation is :" + inv);
-                        return null;
-                    }
                 }
-                RpcContext.getContext().setRemoteAddress(channel.getRemoteAddress());
-                return invoker.invoke(inv);
+                if (!hasMethod) {
+                    logger.warn(new IllegalStateException("The methodName " + inv.getMethodName()
+                            + " not found in callback service interface ,invoke will be ignored."
+                            + " please update the api interface. url is:"
+                            + invoker.getUrl()) + " ,invocation is :" + inv);
+                    return null;
+                }
             }
-            throw new RemotingException(channel, "Unsupported request: "
-                    + (message == null ? null : (message.getClass().getName() + ": " + message))
-                    + ", channel: consumer: " + channel.getRemoteAddress() + " --> provider: " + channel.getLocalAddress());
+            // 设置调用方的地址
+            RpcContext.getContext().setRemoteAddress(channel.getRemoteAddress());
+            // 执行调用
+            return invoker.invoke(inv); // 调用业务方具体方法
         }
+            throw new RemotingException(channel, "Unsupported request: "
+                + (message == null ? null : (message.getClass().getName() + ": " + message))
+                + ", channel: consumer: " + channel.getRemoteAddress() + " --> provider: " + channel.getLocalAddress());
+    }
 
-        @Override
-        public void received(Channel channel, Object message) throws RemotingException {
+    @Override
+    public void received(Channel channel, Object message) throws RemotingException {
+            // 用于处理服务消费者的单次调用的消息，通过判断消息类型是不是 Invocation
             if (message instanceof Invocation) {
                 reply((ExchangeChannel) channel, message);
             } else {
@@ -129,11 +152,17 @@ public class DubboProtocol extends AbstractProtocol {
             }
             invoke(channel, Constants.ON_DISCONNECT_KEY);
         }
-
+        /**
+         * 调用方法
+         * @param channel 通道
+         * @param methodKey 方法名
+         */
         private void invoke(Channel channel, String methodKey) {
+            // 创建 Invocation 对象
             Invocation invocation = createInvocation(channel, channel.getUrl(), methodKey);
             if (invocation != null) {
                 try {
+                    // 调用 received 方法，执行对应的方法
                     received(channel, invocation);
                 } catch (Throwable t) {
                     logger.warn("Failed to invoke event method " + invocation.getMethodName() + "(), cause: " + t.getMessage(), t);
@@ -192,26 +221,28 @@ public class DubboProtocol extends AbstractProtocol {
     Invoker<?> getInvoker(Channel channel, Invocation inv) throws RemotingException {
         boolean isCallBackServiceInvoke = false;
         boolean isStubServiceInvoke = false;
-        int port = channel.getLocalAddress().getPort();
-        String path = inv.getAttachments().get(Constants.PATH_KEY);
+        int port = channel.getLocalAddress().getPort(); // 获取服务暴露协议的端口
+        String path = inv.getAttachments().get(Constants.PATH_KEY); // 获取调用传递的接口
         // if it's callback service on client side
         isStubServiceInvoke = Boolean.TRUE.toString().equals(inv.getAttachments().get(Constants.STUB_EVENT_KEY));
         if (isStubServiceInvoke) {
             port = channel.getRemoteAddress().getPort();
         }
+        // 如果是参数回调，获得真正的服务名 `path` 。
         //callback
         isCallBackServiceInvoke = isClientSide(channel) && !isStubServiceInvoke;
-        if (isCallBackServiceInvoke) {
+        if (isCallBackServiceInvoke) { // 是回调方法
             path = inv.getAttachments().get(Constants.PATH_KEY) + "." + inv.getAttachments().get(Constants.CALLBACK_SERVICE_KEY);
             inv.getAttachments().put(IS_CALLBACK_SERVICE_INVOKE, Boolean.TRUE.toString());
         }
-        String serviceKey = serviceKey(port, path, inv.getAttachments().get(Constants.VERSION_KEY), inv.getAttachments().get(Constants.GROUP_KEY));
-
-        DubboExporter<?> exporter = (DubboExporter<?>) exporterMap.get(serviceKey);
+        // 获得服务建
+        String serviceKey = serviceKey(port, path, inv.getAttachments().get(Constants.VERSION_KEY), inv.getAttachments().get(Constants.GROUP_KEY)); // 根据端口、接口名、接口分组和接口版本构造唯一的serviceKey
+        // 获得 Exporter 对象
+        DubboExporter<?> exporter = (DubboExporter<?>) exporterMap.get(serviceKey); // 根据serviceKey从内存中获取对应的Exporter
 
         if (exporter == null)
             throw new RemotingException(channel, "Not found exported service: " + serviceKey + " in " + exporterMap.keySet() + ", may be version or group mismatch " + ", channel: consumer: " + channel.getRemoteAddress() + " --> provider: " + channel.getLocalAddress() + ", message:" + inv);
-
+        // 获得 Invoker 对象
         return exporter.getInvoker();
     }
 
@@ -229,9 +260,10 @@ public class DubboProtocol extends AbstractProtocol {
         URL url = invoker.getUrl();
 
         // export service.
-        String key = serviceKey(url);
+        String key = serviceKey(url); // 根据服务分组、版本、接口、端口构造key
+        // 创建 DubboExporter 对象，并添加到 `exporterMap` 。
         DubboExporter<T> exporter = new DubboExporter<T>(invoker, key, exporterMap);
-        exporterMap.put(key, exporter);
+        exporterMap.put(key, exporter); // 把exporter存储到单例DubboProtocol中
 
         //export an stub service for dispatching event
         Boolean isStubSupportEvent = url.getParameter(Constants.STUB_EVENT_KEY, Constants.DEFAULT_STUB_EVENT);
@@ -247,12 +279,17 @@ public class DubboProtocol extends AbstractProtocol {
                 stubServiceMethodsMap.put(url.getServiceKey(), stubServiceMethods);
             }
         }
-
+        // 启动服务器
         openServer(url);
+        // 初始化序列化优化器
         optimizeSerialization(url);
         return exporter;
     }
 
+    /**
+     * 启动服务器
+     * @param url
+     */
     private void openServer(URL url) {
         // find server.
         String key = url.getAddress();
@@ -269,23 +306,32 @@ public class DubboProtocol extends AbstractProtocol {
         }
     }
 
+    /**
+     * 创建并启动通信服务器
+     * @param url
+     * @return
+     */
     private ExchangeServer createServer(URL url) {
+        // 默认开启 server 关闭时发送 READ_ONLY 事件
         // send readonly event when server closes, it's enabled by default
         url = url.addParameterIfAbsent(Constants.CHANNEL_READONLYEVENT_SENT_KEY, Boolean.TRUE.toString());
+        // 默认开启 heartbeat
         // enable heartbeat by default
         url = url.addParameterIfAbsent(Constants.HEARTBEAT_KEY, String.valueOf(Constants.DEFAULT_HEARTBEAT));
         String str = url.getParameter(Constants.SERVER_KEY, Constants.DEFAULT_REMOTING_SERVER);
-
+        // 校验 Server 的 Dubbo SPI 拓展是否存在
         if (str != null && str.length() > 0 && !ExtensionLoader.getExtensionLoader(Transporter.class).hasExtension(str))
             throw new RpcException("Unsupported server type: " + str + ", url: " + url);
-
+        // 设置编解码器为 `"Dubbo"`
         url = url.addParameter(Constants.CODEC_KEY, DubboCodec.NAME);
+        // 启动服务器
         ExchangeServer server;
         try {
             server = Exchangers.bind(url, requestHandler);
         } catch (RemotingException e) {
             throw new RpcException("Fail to start server(url: " + url + ") " + e.getMessage(), e);
         }
+        // 校验 Client 的 Dubbo SPI 拓展是否存在
         str = url.getParameter(Constants.CLIENT_KEY);
         if (str != null && str.length() > 0) {
             Set<String> supportedTypes = ExtensionLoader.getExtensionLoader(Transporter.class).getSupportedExtensions();
@@ -305,17 +351,18 @@ public class DubboProtocol extends AbstractProtocol {
         logger.info("Optimizing the serialization process for Kryo, FST, etc...");
 
         try {
+            // 加载 SerializationOptimizer 实现类
             Class clazz = Thread.currentThread().getContextClassLoader().loadClass(className);
             if (!SerializationOptimizer.class.isAssignableFrom(clazz)) {
                 throw new RpcException("The serialization optimizer " + className + " isn't an instance of " + SerializationOptimizer.class.getName());
             }
-
+            // 创建 SerializationOptimizer 对象
             SerializationOptimizer optimizer = (SerializationOptimizer) clazz.newInstance();
 
             if (optimizer.getSerializableClasses() == null) {
                 return;
             }
-
+            // 注册到 SerializableClassRegistry 中
             for (Class c : optimizer.getSerializableClasses()) {
                 SerializableClassRegistry.registerClass(c);
             }
@@ -332,28 +379,38 @@ public class DubboProtocol extends AbstractProtocol {
 
     @Override
     public <T> Invoker<T> refer(Class<T> serviceType, URL url) throws RpcException {
+        // 初始化序列化优化器
         optimizeSerialization(url);
+        // 获得远程通信客户端数组
+        // 创建 DubboInvoker 对象
         // create rpc invoker.
         DubboInvoker<T> invoker = new DubboInvoker<T>(serviceType, url, getClients(url), invokers);
+        // 添加到 `invokers`
         invokers.add(invoker);
         return invoker;
     }
 
+    /**
+     * 获得连接服务提供者的远程通信客户端数组
+     * @param url 服务提供者 URL
+     * @return 远程通信客户端数组
+     */
     private ExchangeClient[] getClients(URL url) {
+        // 是否共享连接
         // whether to share connection
         boolean service_share_connect = false;
         int connections = url.getParameter(Constants.CONNECTIONS_KEY, 0);
         // if not configured, connection is shared, otherwise, one connection for one service
-        if (connections == 0) {
+        if (connections == 0) { // 未配置时，默认共享
             service_share_connect = true;
             connections = 1;
         }
-
+        // 创建连接服务提供者的 ExchangeClient 对象数组
         ExchangeClient[] clients = new ExchangeClient[connections];
         for (int i = 0; i < clients.length; i++) {
-            if (service_share_connect) {
+            if (service_share_connect) { // 共享
                 clients[i] = getSharedClient(url);
-            } else {
+            } else { // 不共享
                 clients[i] = initClient(url);
             }
         }
@@ -364,25 +421,30 @@ public class DubboProtocol extends AbstractProtocol {
      * Get shared connection
      */
     private ExchangeClient getSharedClient(URL url) {
+        // 从集合中，查找 ReferenceCountExchangeClient 对象
         String key = url.getAddress();
         ReferenceCountExchangeClient client = referenceClientMap.get(key);
         if (client != null) {
+            // 若未关闭，增加指向该 Client 的数量，并返回它
             if (!client.isClosed()) {
                 client.incrementAndGetCount();
                 return client;
-            } else {
+            } else { // 若已关闭，移除
                 referenceClientMap.remove(key);
             }
         }
 
         locks.putIfAbsent(key, new Object());
+        // 同步，创建 ExchangeClient 对象。
         synchronized (locks.get(key)) {
             if (referenceClientMap.containsKey(key)) {
                 return referenceClientMap.get(key);
             }
-
+            // 创建 ExchangeClient 对象
             ExchangeClient exchangeClient = initClient(url);
+            // 将 `exchangeClient` 包装，创建 ReferenceCountExchangeClient 对象
             client = new ReferenceCountExchangeClient(exchangeClient, ghostClientMap);
+            // 添加到集合
             referenceClientMap.put(key, client);
             ghostClientMap.remove(key);
             locks.remove(key);
@@ -392,14 +454,16 @@ public class DubboProtocol extends AbstractProtocol {
 
     /**
      * Create new connection
+     * 创建 ExchangeClient 对象，”连接”服务器
      */
     private ExchangeClient initClient(URL url) {
-
+        // 校验 Client 的 Dubbo SPI 拓展是否存在
         // client type setting.
         String str = url.getParameter(Constants.CLIENT_KEY, url.getParameter(Constants.SERVER_KEY, Constants.DEFAULT_REMOTING_CLIENT));
-
+        // 设置编解码器为 Dubbo ，即 DubboCountCodec
         url = url.addParameter(Constants.CODEC_KEY, DubboCodec.NAME);
         // enable heartbeat by default
+        // 默认开启 heartbeat
         url = url.addParameterIfAbsent(Constants.HEARTBEAT_KEY, String.valueOf(Constants.DEFAULT_HEARTBEAT));
 
         // BIO is not allowed since it has severe performance issue.
@@ -407,14 +471,15 @@ public class DubboProtocol extends AbstractProtocol {
             throw new RpcException("Unsupported client type: " + str + "," +
                     " supported client type is " + StringUtils.join(ExtensionLoader.getExtensionLoader(Transporter.class).getSupportedExtensions(), " "));
         }
-
+        // 连接服务器，创建客户端
         ExchangeClient client;
         try {
+            // 懒连接，创建 LazyConnectExchangeClient 对象
             // connection should be lazy
             if (url.getParameter(Constants.LAZY_CONNECT_KEY, false)) {
-                client = new LazyConnectExchangeClient(url, requestHandler);
-            } else {
-                client = Exchangers.connect(url, requestHandler);
+                client = new LazyConnectExchangeClient(url, requestHandler); // 配置了lazy属性属性，则真实调用才会创建TCP连接
+            } else { // 直接连接，创建 HeaderExchangeClient 对象
+                client = Exchangers.connect(url, requestHandler); // 立即与服务端建立远程连接
             }
         } catch (RemotingException e) {
             throw new RpcException("Fail to create remoting client for service(" + url + "): " + e.getMessage(), e);
@@ -424,6 +489,7 @@ public class DubboProtocol extends AbstractProtocol {
 
     @Override
     public void destroy() {
+        // 销毁所有 ExchangeServer
         for (String key : new ArrayList<String>(serverMap.keySet())) {
             ExchangeServer server = serverMap.remove(key);
             if (server != null) {
@@ -437,7 +503,7 @@ public class DubboProtocol extends AbstractProtocol {
                 }
             }
         }
-
+        // 销毁所有 ExchangeClient
         for (String key : new ArrayList<String>(referenceClientMap.keySet())) {
             ExchangeClient client = referenceClientMap.remove(key);
             if (client != null) {
@@ -451,7 +517,7 @@ public class DubboProtocol extends AbstractProtocol {
                 }
             }
         }
-
+        // 销毁所有幽灵 ExchangeClient
         for (String key : new ArrayList<String>(ghostClientMap.keySet())) {
             ExchangeClient client = ghostClientMap.remove(key);
             if (client != null) {

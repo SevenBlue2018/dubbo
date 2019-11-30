@@ -90,12 +90,12 @@ public class ScriptRouter implements Router {
         try {
             List<Invoker<T>> invokersCopy = new ArrayList<Invoker<T>>(invokers);
             Compilable compilable = (Compilable) engine;
-            Bindings bindings = engine.createBindings();
+            Bindings bindings = engine.createBindings(); // 构造传入脚本的参数
             bindings.put("invokers", invokersCopy);
             bindings.put("invocation", invocation);
             bindings.put("context", RpcContext.getContext());
             CompiledScript function = compilable.compile(rule);
-            Object obj = function.eval(bindings);
+            Object obj = function.eval(bindings); // 执行脚本
             if (obj instanceof Invoker[]) {
                 invokersCopy = Arrays.asList((Invoker<T>[]) obj);
             } else if (obj instanceof Object[]) {

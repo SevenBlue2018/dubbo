@@ -56,7 +56,7 @@ public class ExecutorUtil {
         final ExecutorService es = (ExecutorService) executor;
         try {
             // Disable new tasks from being submitted
-            es.shutdown();
+            es.shutdown(); // 关闭，禁止新的任务提交，将原有任务执行完
         } catch (SecurityException ex2) {
             return;
         } catch (NullPointerException ex2) {
@@ -64,14 +64,14 @@ public class ExecutorUtil {
         }
         try {
             // Wait a while for existing tasks to terminate
-            if (!es.awaitTermination(timeout, TimeUnit.MILLISECONDS)) {
+            if (!es.awaitTermination(timeout, TimeUnit.MILLISECONDS)) { // 等待原有任务执行完。若等待超时，强制结束所有任务
                 es.shutdownNow();
             }
         } catch (InterruptedException ex) {
-            es.shutdownNow();
+            es.shutdownNow(); // 发生 InterruptedException 异常，也强制结束所有任务
             Thread.currentThread().interrupt();
         }
-        if (!isTerminated(es)) {
+        if (!isTerminated(es)) { // 若未关闭成功，新开线程去关闭
             newThreadToCloseExecutor(es);
         }
     }

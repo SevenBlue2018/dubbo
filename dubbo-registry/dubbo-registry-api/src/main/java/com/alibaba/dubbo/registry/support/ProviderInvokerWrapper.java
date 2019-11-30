@@ -24,6 +24,8 @@ import com.alibaba.dubbo.rpc.RpcException;
 
 /**
  * @date 2017/11/23
+ * 实现 Invoker 接口，服务提供者 Invoker Wrapper
+ * 相比纯粹的 Invoker 对象，又多了运维命令需要的属性
  */
 public class ProviderInvokerWrapper<T> implements Invoker {
     private Invoker<T> invoker;

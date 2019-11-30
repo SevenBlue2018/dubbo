@@ -31,7 +31,7 @@ import java.util.List;
 public abstract class AbstractLoadBalance implements LoadBalance {
 
     static int calculateWarmupWeight(int uptime, int warmup, int weight) {
-        int ww = (int) ((float) uptime / ((float) warmup / (float) weight));
+        int ww = (int) ((float) uptime / ((float) warmup / (float) weight)); // (启动至今的时间/给予的总预热时间)*权重
         return ww < 1 ? 1 : (ww > weight ? weight : ww);
     }
 
@@ -47,14 +47,15 @@ public abstract class AbstractLoadBalance implements LoadBalance {
     protected abstract <T> Invoker<T> doSelect(List<Invoker<T>> invokers, URL url, Invocation invocation);
 
     protected int getWeight(Invoker<?> invoker, Invocation invocation) {
+        // 通过URL获取当前invoker设置的权重
         int weight = invoker.getUrl().getMethodParameter(invocation.getMethodName(), Constants.WEIGHT_KEY, Constants.DEFAULT_WEIGHT);
         if (weight > 0) {
-            long timestamp = invoker.getUrl().getParameter(Constants.REMOTE_TIMESTAMP_KEY, 0L);
+            long timestamp = invoker.getUrl().getParameter(Constants.REMOTE_TIMESTAMP_KEY, 0L); // 获取启动的时间点
             if (timestamp > 0L) {
-                int uptime = (int) (System.currentTimeMillis() - timestamp);
-                int warmup = invoker.getUrl().getParameter(Constants.WARMUP_KEY, Constants.DEFAULT_WARMUP);
+                int uptime = (int) (System.currentTimeMillis() - timestamp); // 求差值得到预热了多久
+                int warmup = invoker.getUrl().getParameter(Constants.WARMUP_KEY, Constants.DEFAULT_WARMUP); // 获取设置的总预热时间
                 if (uptime > 0 && uptime < warmup) {
-                    weight = calculateWarmupWeight(uptime, warmup, weight);
+                    weight = calculateWarmupWeight(uptime, warmup, weight); // 计算出最后的权重
                 }
             }
         }

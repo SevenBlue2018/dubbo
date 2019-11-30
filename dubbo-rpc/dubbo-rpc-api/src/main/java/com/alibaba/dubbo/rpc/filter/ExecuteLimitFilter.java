@@ -29,7 +29,8 @@ import com.alibaba.dubbo.rpc.RpcStatus;
 import java.util.concurrent.Semaphore;
 
 /**
- * ThreadLimitInvokerFilter
+ * ExecuteLimitFilter
+ * 实现 Filter 接口，服务提供者每服务、每方法的最大可并行执行请求数的过滤器实现类
  */
 @Activate(group = Constants.PROVIDER, value = Constants.EXECUTES_KEY)
 public class ExecuteLimitFilter implements Filter {
@@ -48,8 +49,8 @@ public class ExecuteLimitFilter implements Filter {
              * http://manzhizhen.iteye.com/blog/2386408
              * use semaphore for concurrency control (to limit thread number)
              */
-            executesLimit = count.getSemaphore(max);
-            if(executesLimit != null && !(acquireResult = executesLimit.tryAcquire())) {
+            executesLimit = count.getSemaphore(max); // 初始化Semphore资源
+            if(executesLimit != null && !(acquireResult = executesLimit.tryAcquire())) { // 调用tryAcquire返回true则表示获取成功，未达到最大并发数，返回false则说明已经达到最大并发数，抛出异常不允许再调用
                 throw new RpcException("Failed to invoke method " + invocation.getMethodName() + " in provider " + url + ", cause: The service using threads greater than <dubbo:service executes=\"" + max + "\" /> limited.");
             }
         }

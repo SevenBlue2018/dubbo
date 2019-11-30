@@ -90,7 +90,7 @@ public class RoundRobinLoadBalance extends AbstractLoadBalance {
     protected <T> Invoker<T> doSelect(List<Invoker<T>> invokers, URL url, Invocation invocation) {
         String key = invokers.get(0).getUrl().getServiceKey() + "." + invocation.getMethodName();
         ConcurrentMap<String, WeightedRoundRobin> map = methodWeightMap.get(key);
-        if (map == null) {
+        if (map == null) { // 初始化权重缓存Map
             methodWeightMap.putIfAbsent(key, new ConcurrentHashMap<String, WeightedRoundRobin>());
             map = methodWeightMap.get(key);
         }
@@ -99,10 +99,10 @@ public class RoundRobinLoadBalance extends AbstractLoadBalance {
         long now = System.currentTimeMillis();
         Invoker<T> selectedInvoker = null;
         WeightedRoundRobin selectedWRR = null;
-        for (Invoker<T> invoker : invokers) {
+        for (Invoker<T> invoker : invokers) { // 遍历所有的invoker
             String identifyString = invoker.getUrl().toIdentityString();
             WeightedRoundRobin weightedRoundRobin = map.get(identifyString);
-            int weight = getWeight(invoker, invocation);
+            int weight = getWeight(invoker, invocation); // 计算invoker权重
             if (weight < 0) {
                 weight = 0;
             }
@@ -116,18 +116,19 @@ public class RoundRobinLoadBalance extends AbstractLoadBalance {
                 //weight changed
                 weightedRoundRobin.setWeight(weight);
             }
-            long cur = weightedRoundRobin.increaseCurrent();
-            weightedRoundRobin.setLastUpdate(now);
-            if (cur > maxCurrent) {
+            long cur = weightedRoundRobin.increaseCurrent(); // current += weight 权重叠加
+            weightedRoundRobin.setLastUpdate(now); // 更新lastUpdate时间
+            if (cur > maxCurrent) { // 找出invoker列表里current值最大的invoker
                 maxCurrent = cur;
                 selectedInvoker = invoker;
                 selectedWRR = weightedRoundRobin;
             }
-            totalWeight += weight;
+            totalWeight += weight; // 累加总权重
         }
         if (!updateLock.get() && invokers.size() != map.size()) {
             if (updateLock.compareAndSet(false, true)) {
                 try {
+                    // copyonwrite思路更新methodWeightMap
                     // copy -> modify -> update reference
                     ConcurrentMap<String, WeightedRoundRobin> newMap = new ConcurrentHashMap<String, WeightedRoundRobin>();
                     newMap.putAll(map);
@@ -145,7 +146,7 @@ public class RoundRobinLoadBalance extends AbstractLoadBalance {
             }
         }
         if (selectedInvoker != null) {
-            selectedWRR.sel(totalWeight);
+            selectedWRR.sel(totalWeight); // 选出来的invoker减去总权重，这是平滑轮训算法的核心思想
             return selectedInvoker;
         }
         // should not happen here

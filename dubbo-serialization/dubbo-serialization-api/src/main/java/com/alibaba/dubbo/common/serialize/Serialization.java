@@ -26,6 +26,7 @@ import java.io.OutputStream;
 
 /**
  * Serialization. (SPI, Singleton, ThreadSafe)
+ * 序列化接口
  */
 @SPI("hessian2")
 public interface Serialization {

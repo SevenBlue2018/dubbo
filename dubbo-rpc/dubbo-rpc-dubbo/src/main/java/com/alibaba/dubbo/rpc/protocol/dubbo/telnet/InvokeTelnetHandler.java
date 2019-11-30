@@ -114,16 +114,16 @@ public class InvokeTelnetHandler implements TelnetHandler {
         if (i < 0 || !message.endsWith(")")) {
             return "Invalid parameters, format: service.method(args)";
         }
-        String method = message.substring(0, i).trim();
-        String args = message.substring(i + 1, message.length() - 1).trim();
+        String method = message.substring(0, i).trim(); // 提取调用方法(由接口名.方法名组成)
+        String args = message.substring(i + 1, message.length() - 1).trim(); // 提取调用方法参数值
         i = method.lastIndexOf(".");
         if (i >= 0) {
-            service = method.substring(0, i).trim();
-            method = method.substring(i + 1).trim();
+            service = method.substring(0, i).trim(); // 提取方法前面的接口
+            method = method.substring(i + 1).trim(); // 提取方法名称
         }
         List<Object> list;
         try {
-            list = JSON.parseArray("[" + args + "]", Object.class);
+            list = JSON.parseArray("[" + args + "]", Object.class); // 将参数json串转换成json对象
         } catch (Throwable t) {
             return "Invalid json argument, cause: " + t.getMessage();
         }
@@ -137,7 +137,7 @@ public class InvokeTelnetHandler implements TelnetHandler {
                     break;
                 }
             } else {
-                if (service.equals(exporter.getInvoker().getInterface().getSimpleName())
+                if (service.equals(exporter.getInvoker().getInterface().getSimpleName()) // 接口名、方法、参数值和类型作为检索方法的条件
                         || service.equals(exporter.getInvoker().getInterface().getName())
                         || service.equals(exporter.getInvoker().getUrl().getPath())) {
                     invokeMethod = findMethod(exporter, method, list);
@@ -149,10 +149,10 @@ public class InvokeTelnetHandler implements TelnetHandler {
         if (invoker != null) {
             if (invokeMethod != null) {
                 try {
-                    Object[] array = PojoUtils.realize(list.toArray(), invokeMethod.getParameterTypes(), invokeMethod.getGenericParameterTypes());
+                    Object[] array = PojoUtils.realize(list.toArray(), invokeMethod.getParameterTypes(), invokeMethod.getGenericParameterTypes()); // 将json参数值转换为Java对象值
                     RpcContext.getContext().setLocalAddress(channel.getLocalAddress()).setRemoteAddress(channel.getRemoteAddress());
                     long start = System.currentTimeMillis();
-                    Object result = invoker.invoke(new RpcInvocation(invokeMethod, array)).recreate();
+                    Object result = invoker.invoke(new RpcInvocation(invokeMethod, array)).recreate(); // 根据查找的Invoker，构造RpcInvocation进行方法调用
                     long end = System.currentTimeMillis();
                     buf.append(JSON.toJSONString(result));
                     buf.append("\r\nelapsed: ");

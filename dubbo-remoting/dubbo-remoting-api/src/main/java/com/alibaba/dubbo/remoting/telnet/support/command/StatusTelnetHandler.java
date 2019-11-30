@@ -44,7 +44,7 @@ public class StatusTelnetHandler implements TelnetHandler {
     @Override
     public String telnet(Channel channel, String message) {
         if (message.equals("-l")) {
-            List<StatusChecker> checkers = extensionLoader.getActivateExtension(channel.getUrl(), "status");
+            List<StatusChecker> checkers = extensionLoader.getActivateExtension(channel.getUrl(), "status"); // 查看StatusChecker实现类，7个实现类上都使用了@Activate注解，不指定条件则都被激活
             String[] header = new String[]{"resource", "status", "message"};
             List<List<String>> table = new ArrayList<List<String>>();
             Map<String, Status> statuses = new HashMap<String, Status>();

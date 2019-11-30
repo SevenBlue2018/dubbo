@@ -42,13 +42,14 @@ public class RpcContextFilter implements ContainerRequestFilter, ClientRequestFi
     @Override
     public void filter(ContainerRequestContext requestContext) throws IOException {
         HttpServletRequest request = ResteasyProviderFactory.getContextData(HttpServletRequest.class);
+        // 在 RestProtocol 中使用，代表 HTTP Request 和 Response 对象，在 RpcContextFilter 中设置
         RpcContext.getContext().setRequest(request);
 
         // this only works for servlet containers
         if (request != null && RpcContext.getContext().getRemoteAddress() == null) {
             RpcContext.getContext().setRemoteAddress(request.getRemoteAddr(), request.getRemotePort());
         }
-
+        // 在 RestProtocol 中使用，代表 HTTP Request 和 Response 对象，在 RpcContextFilter 中设置
         RpcContext.getContext().setResponse(ResteasyProviderFactory.getContextData(HttpServletResponse.class));
 
         String headers = requestContext.getHeaderString(DUBBO_ATTACHMENT_HEADER);

@@ -25,6 +25,7 @@ import io.netty.channel.ChannelPromise;
 
 /**
  * NettyClientHandler
+ * 实现 io.netty.channel.ChannelDuplexHandler 类，NettyClient 的处理器。
  */
 @io.netty.channel.ChannelHandler.Sharable
 public class NettyClientHandler extends ChannelDuplexHandler {

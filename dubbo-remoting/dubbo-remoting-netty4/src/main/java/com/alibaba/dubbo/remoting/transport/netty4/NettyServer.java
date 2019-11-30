@@ -47,6 +47,7 @@ import java.util.Map;
 
 /**
  * NettyServer
+ * 实现 Server 接口，继承 AbstractServer 抽象类，Netty 服务器实现类
  */
 public class NettyServer extends AbstractServer implements Server {
 
@@ -62,7 +63,7 @@ public class NettyServer extends AbstractServer implements Server {
     private EventLoopGroup workerGroup;
 
     public NettyServer(URL url, ChannelHandler handler) throws RemotingException {
-        super(url, ChannelHandlers.wrap(handler, ExecutorUtil.setThreadName(url, SERVER_THREAD_POOL_NAME)));
+        super(url, ChannelHandlers.wrap(handler, ExecutorUtil.setThreadName(url, SERVER_THREAD_POOL_NAME))); // 为URL添加threadname参数
     }
 
     @Override
@@ -84,7 +85,7 @@ public class NettyServer extends AbstractServer implements Server {
                 .childHandler(new ChannelInitializer<NioSocketChannel>() {
                     @Override
                     protected void initChannel(NioSocketChannel ch) throws Exception {
-                        NettyCodecAdapter adapter = new NettyCodecAdapter(getCodec(), getUrl(), NettyServer.this);
+                        NettyCodecAdapter adapter = new NettyCodecAdapter(getCodec(), getUrl(), NettyServer.this); // codec默认是dubbo，getCodec()结果是DubboCodec
                         ch.pipeline()//.addLast("logging",new LoggingHandler(LogLevel.INFO))//for debug
                                 .addLast("decoder", adapter.getDecoder())
                                 .addLast("encoder", adapter.getEncoder())
@@ -109,6 +110,7 @@ public class NettyServer extends AbstractServer implements Server {
             logger.warn(e.getMessage(), e);
         }
         try {
+            // 关闭连接到服务器的客户端通道
             Collection<com.alibaba.dubbo.remoting.Channel> channels = getChannels();
             if (channels != null && channels.size() > 0) {
                 for (com.alibaba.dubbo.remoting.Channel channel : channels) {
@@ -122,6 +124,7 @@ public class NettyServer extends AbstractServer implements Server {
         } catch (Throwable e) {
             logger.warn(e.getMessage(), e);
         }
+        // 优雅关闭工作组
         try {
             if (bootstrap != null) {
                 bossGroup.shutdownGracefully();
@@ -130,6 +133,7 @@ public class NettyServer extends AbstractServer implements Server {
         } catch (Throwable e) {
             logger.warn(e.getMessage(), e);
         }
+        // 清空连接到服务器的客户端通道
         try {
             if (channels != null) {
                 channels.clear();

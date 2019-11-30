@@ -30,6 +30,7 @@ import java.net.URL;
 
 /**
  * HttpClientConnectionFactory
+ * 实现 HessianConnectionFactory 接口，创建 HttpClientConnection 的工厂
  */
 public class HttpClientConnectionFactory implements HessianConnectionFactory {
 

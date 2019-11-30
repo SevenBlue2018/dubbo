@@ -25,12 +25,13 @@ import com.alibaba.dubbo.common.extension.SPI;
  */
 public class SpiExtensionFactory implements ExtensionFactory {
 
+    // 如果某个接口的实现类上标注了@Adaptive注解，则调用该方法直接返回该实现类的实例
     @Override
     public <T> T getExtension(Class<T> type, String name) {
         if (type.isInterface() && type.isAnnotationPresent(SPI.class)) {
-            ExtensionLoader<T> loader = ExtensionLoader.getExtensionLoader(type);
+            ExtensionLoader<T> loader = ExtensionLoader.getExtensionLoader(type); // 根据类型获取所有的扩展点加载器
             if (!loader.getSupportedExtensions().isEmpty()) {
-                return loader.getAdaptiveExtension();
+                return loader.getAdaptiveExtension(); // 如果缓存的扩展点类不为空，则直接返回Adaptive实例
             }
         }
         return null;

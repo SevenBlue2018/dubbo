@@ -19,15 +19,25 @@ package com.alibaba.dubbo.rpc.filter.tps;
 import java.util.concurrent.atomic.AtomicInteger;
 
 class StatItem {
-
+    /**
+     * 统计名，目前使用服务名
+     */
     private String name;
-
+    /**
+     * 最后重置时间
+     */
     private long lastResetTime;
-
+    /**
+     * 周期
+     */
     private long interval;
-
+    /**
+     * 当前周期，剩余种子数
+     */
     private AtomicInteger token;
-
+    /**
+     * 限制大小
+     */
     private int rate;
 
     StatItem(String name, int rate, long interval) {
@@ -40,15 +50,15 @@ class StatItem {
 
     public boolean isAllowable() {
         long now = System.currentTimeMillis();
-        if (now > lastResetTime + interval) {
-            token.set(rate);
+        if (now > lastResetTime + interval) { // 超过了刷新时间则重新分配令牌
+            token.set(rate); // 个数为指定rate值
             lastResetTime = now;
         }
 
         int value = token.get();
         boolean flag = false;
-        while (value > 0 && !flag) {
-            flag = token.compareAndSet(value, value - 1);
+        while (value > 0 && !flag) { // 还存在令牌则进行获取
+            flag = token.compareAndSet(value, value - 1); // CAS方法减一成功则说明申请到令牌
             value = token.get();
         }
 

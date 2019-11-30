@@ -29,6 +29,7 @@ import java.util.Properties;
 
 /**
  * Log4jContainer. (SPI, Singleton, ThreadSafe)
+ * 实现 Container 接口，Log4j 容器实现类，自动配置 log4j 的配置，在多进程启动时，自动给日志文件按进程分目录。
  */
 public class Log4jContainer implements Container {
 

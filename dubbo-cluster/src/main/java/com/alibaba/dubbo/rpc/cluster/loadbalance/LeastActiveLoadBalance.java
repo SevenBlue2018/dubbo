@@ -45,6 +45,7 @@ public class LeastActiveLoadBalance extends AbstractLoadBalance {
         boolean sameWeight = true; // Every invoker has the same weight value?
         for (int i = 0; i < length; i++) {
             Invoker<T> invoker = invokers.get(i);
+            // 注意：active是从RpcStatus里获取的，每次invoker调用都会经过ActiveLimitFilter这个过滤器，无论执行成功与否，都会对active减1，所以所有invoker都是公平的
             int active = RpcStatus.getStatus(invoker.getUrl(), invocation.getMethodName()).getActive(); // Active number
             int afterWarmup = getWeight(invoker, invocation); // Weight
             if (leastActive == -1 || active < leastActive) { // Restart, when find a invoker having smaller least active value.
@@ -69,7 +70,7 @@ public class LeastActiveLoadBalance extends AbstractLoadBalance {
             // If we got exactly one invoker having the least active value, return this invoker directly.
             return invokers.get(leastIndexs[0]);
         }
-        if (!sameWeight && totalWeight > 0) {
+        if (!sameWeight && totalWeight > 0) { // 此处类似RandomLoadBalance逻辑
             // If (not every invoker has the same weight & at least one invoker's weight>0), select randomly based on totalWeight.
             int offsetWeight = random.nextInt(totalWeight) + 1;
             // Return a invoker based on the random value.
@@ -81,6 +82,6 @@ public class LeastActiveLoadBalance extends AbstractLoadBalance {
             }
         }
         // If all invokers have the same weight value or totalWeight=0, return evenly.
-        return invokers.get(leastIndexs[random.nextInt(leastCount)]);
+        return invokers.get(leastIndexs[random.nextInt(leastCount)]); // 权重一样则随机选一个
     }
 }
