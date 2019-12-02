@@ -31,12 +31,17 @@
 
     <dubbo:consumer client="netty4"/>
 
-
-    <bean id="callBack" class="com.alibaba.dubbo.demo.DemoCallBack"></bean>
     <!-- generate proxy for the remote service, then demoService can be used in the same way as the
     local regular interface -->
-    <dubbo:reference id="demoService" check="false" interface="com.alibaba.dubbo.demo.DemoService" cluster="failfast" async="true">
+    <dubbo:reference id="demoService" interface="com.alibaba.dubbo.demo.DemoService"/>
+
+    <!--onreturn和onthrow方法进行服务端异步回调-->
+    <!--<bean id="callBack" class="com.alibaba.dubbo.demo.DemoCallBack"></bean>-->
+    <!--<dubbo:reference id="demoService" check="false" interface="com.alibaba.dubbo.demo.DemoService" cluster="failfast" async="true">
         <dubbo:method name="sayHello" oninvoke="callBack.oninvoke" onreturn="callBack.onreturn" onthrow="callBack.onthrow"></dubbo:method>
-    </dubbo:reference>
+    </dubbo:reference>-->
+
+    <!--设置url表示消费端直连服务端-->
+    <!--<dubbo:reference id="demoService" interface="com.alibaba.dubbo.demo.DemoService" url="dubbo://localhost:20880/"/>-->
 
 </beans>

@@ -27,6 +27,8 @@
     <!-- use multicast registry center to export service -->
    <!-- <dubbo:registry address="multicast://224.5.6.7:1234"/>-->
     <dubbo:registry address="zookeeper://localhost:2181"/>
+    <!--设置服务不进行注册，提供给客户端直连调试-->
+    <!--<dubbo:registry register="false"></dubbo:registry>-->
 
     <!-- use dubbo protocol to export service on port 20880 -->
     <dubbo:protocol name="dubbo" port="20880" server="netty4"/>
@@ -35,6 +37,7 @@
     <bean id="demoService" class="com.alibaba.dubbo.demo.provider.DemoServiceImpl"/>
 
     <!-- declare the service interface to be exported -->
-    <dubbo:service interface="com.alibaba.dubbo.demo.DemoService" ref="demoService" cluster="failfast"/>
-
+    <dubbo:service interface="com.alibaba.dubbo.demo.DemoService" ref="demoService" cluster="failfast" scope="local"/>
+    <!--测试客户端与服务端直连方式，registry="N/A"表示不进行注册-->
+    <!--<dubbo:service interface="com.alibaba.dubbo.demo.DemoService" ref="demoService" registry="N/A"/>-->
 </beans>
